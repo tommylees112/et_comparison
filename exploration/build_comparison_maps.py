@@ -320,44 +320,44 @@ fig1,ax1=plt.subplots(figsize=(12,8))
 holaps.mean(dim='time').plot(ax=ax1,**kwargs)
 ax1.set_title(f"HOLAPS Mean Latent Heat Flux [{holaps.units}]")
 fig1.savefig('figs/holaps_map1.png')
-# fig1.savefig('figs/holaps_map1.svg')
+# fig1.savefig('figs/svg/holaps_map1.svg')
 
 fig2,ax2=plt.subplots(figsize=(12,8))
 # transpose because longitude/latitude => latitude/longitude for plotting
 modis.mean(dim='time').plot(ax=ax2,**kwargs)
 ax2.set_title(f"MODIS Monthly Actual Evapotranspiration [{modis.units}]")
 fig2.savefig('figs/modis_map1.png')
-# fig2.savefig('figs/modis_map1.svg')
+# fig2.savefig('figs/svg/modis_map1.svg')
 
 fig3,ax3=plt.subplots(figsize=(12,8))
 gleam.mean(dim='time').plot(ax=ax3,**kwargs)
 ax3.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam.units}]")
 fig3.savefig('figs/gleam_map1.png')
-# fig3.savefig('figs/gleam_map1.svg')
+# fig3.savefig('figs/svg/gleam_map1.svg')
 
 fig4,ax4=plt.subplots(figsize=(12,8))
 holaps_mm.mean(dim='time').plot(ax=ax4,**kwargs)
 ax4.set_title(f"HOLAPS Mean Evapotranspiration [{holaps_mm.units}]")
 fig4.savefig('figs/holaps_mm_map1.png')
-# fig4.savefig('figs/holaps_mm_map1.svg')
+# fig4.savefig('figs/svg/holaps_mm_map1.svg')
 
 fig5,ax5=plt.subplots(figsize=(12,8))
 holaps_repr.mean(dim='time').plot(ax=ax5,**kwargs)
 ax5.set_title(f"HOLAPS Reprojected Mean Evapotranspiration [{holaps_repr.units}]")
 fig5.savefig('figs/holaps_repr_map1.png')
-# fig5.savefig('figs/holaps_repr_map1.svg')
+# fig5.savefig('figs/svg/holaps_repr_map1.svg')
 
 fig6,ax6=plt.subplots(figsize=(12,8))
 gleam_msk.mean(dim='time').plot(ax=ax6,**kwargs)
 ax6.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam_msk.units}]")
 fig6.savefig('figs/gleam_msk_map1.png')
-# fig5.savefig('figs/holaps_repr_map1.svg')
+# fig5.savefig('figs/svg/holaps_repr_map1.svg')
 
 fig7,ax7=plt.subplots(figsize=(12,8))
 modis_msk.mean(dim='time').plot(ax=ax7,**kwargs)
-ax7.set_title(f"HOLAPS Reprojected Mean Evapotranspiration [{modis_msk.units}]")
+ax7.set_title(f"MODIS Monthly Actual Evapotranspiration [{modis_msk.units}]")
 fig7.savefig('figs/modis_msk_map1.png')
-# fig5.savefig('figs/holaps_repr_map1.svg')
+# fig5.savefig('figs/svg/holaps_repr_map1.svg')
 
 
 #%%
