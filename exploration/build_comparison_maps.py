@@ -11,6 +11,8 @@ import os
 import xesmf as xe # for regridding
 
 
+%matplotlib
+
 def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
     """ Use xEMSF package to regrid ds to the same grid as reference_ds """
     assert ("lat" in reference_ds.dims)&("lon" in reference_ds.dims), f"Need (lat,lon) in reference_ds dims Currently: {reference_ds.dims}"
@@ -150,7 +152,7 @@ def get_holaps_mask(ds):
     """
     warnings.warn('assumes that all of the null values from the HOLAPS file are valid null values (e.g. water bodies). Could also be invalid nulls due to poor data processing / lack of satellite input data for a pixel!')
     warnings.warn('How to collapse the time dimension in the holaps mask? Here we just select the first time because all of the valid pixels are constant for first, last second last. Need to check this is true for all timesteps')
-    mask = ds.isnull().isel(time=0)
+    mask = ds.isnull().isel(time=0).drop('time')
     mask.name = 'holaps_mask'
 
     return mask
@@ -220,7 +222,7 @@ gleam = xr.open_dataset(data_dir).evaporation
 # resample to monthly & select same time range as
 gleam = gleam.resample(time='M').mean(dim='time')
 gleam = select_same_time_slice(holaps,gleam)
-
+gleam.attrs['units'] = "mm day-1"
 # REGRID onto same grid as HOLAPS
 gleam = convert_to_same_grid(holaps_repr, gleam, method="nearest_s2d")
 
@@ -256,6 +258,19 @@ modis = convert_to_same_grid(holaps_repr, modis, method="nearest_s2d")
 # reassign the units to the modis DataArray object
 modis.attrs['units'] ='mm day-1 [mm/month / 30.417]'
 
+#%%
+# ------------------------------------------------------------------------------
+# Get the HOLAPS mask and apply it to all other datasets
+# ------------------------------------------------------------------------------
+mask  = get_holaps_mask(holaps_repr)
+mask = xr.concat([mask for _ in range(len(holaps.time))])
+mask = mask.rename({'concat_dims':'time'})
+mask['time'] = holaps.time
+
+# mask the other datasets
+gleam_msk = gleam.where(~mask)
+modis_msk = modis.where(~mask)
+
 """
 Problems with the data:
 ----------------------
@@ -276,7 +291,7 @@ Problems with the data:
 [x] Timesteps:
      modis starts in February 2001 for some reason
 
-[] Different masks:
+[x] Different masks:
     HOLAPS masks out the water areas
     GLEAM masks out some of the water areas
     MODIS has no mask for the water areas
@@ -316,7 +331,7 @@ fig2.savefig('figs/modis_map1.png')
 
 fig3,ax3=plt.subplots(figsize=(12,8))
 gleam.mean(dim='time').plot(ax=ax3,**kwargs)
-ax3.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [mm day-1]")
+ax3.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam.units}]")
 fig3.savefig('figs/gleam_map1.png')
 # fig3.savefig('figs/gleam_map1.svg')
 
@@ -331,6 +346,19 @@ holaps_repr.mean(dim='time').plot(ax=ax5,**kwargs)
 ax5.set_title(f"HOLAPS Reprojected Mean Evapotranspiration [{holaps_repr.units}]")
 fig5.savefig('figs/holaps_repr_map1.png')
 # fig5.savefig('figs/holaps_repr_map1.svg')
+
+fig6,ax6=plt.subplots(figsize=(12,8))
+gleam_msk.mean(dim='time').plot(ax=ax6,**kwargs)
+ax6.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam_msk.units}]")
+fig6.savefig('figs/gleam_msk_map1.png')
+# fig5.savefig('figs/holaps_repr_map1.svg')
+
+fig7,ax7=plt.subplots(figsize=(12,8))
+modis_msk.mean(dim='time').plot(ax=ax7,**kwargs)
+ax7.set_title(f"HOLAPS Reprojected Mean Evapotranspiration [{modis_msk.units}]")
+fig7.savefig('figs/modis_msk_map1.png')
+# fig5.savefig('figs/holaps_repr_map1.svg')
+
 
 #%%
 # ------------------------------------------------------------------------------

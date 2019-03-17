@@ -6,4 +6,4 @@ https://www.ntsg.umt.edu/project/modis/mod16.php
 - [x] Reproject HOLAPS to geographic lat lon
 - [-] Convert GLEAM ET from mm/day -> mm/month
 - [x] OR convert MODIS ET -> mm/day
-- [] Copy the HOLAPS mask to other datasets 
+- [x] Copy the HOLAPS mask to other datasets
