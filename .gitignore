@@ -1,0 +1,12 @@
+
+data/parallel_python
+data/parallel_python/*
+
+data/*.sh
+
+figs/svg
+figs/svg/*
+*.sketch
+
+figs/
+figs/*
