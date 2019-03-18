@@ -4,6 +4,7 @@ data/parallel_python/*
 
 data/*.sh
 
+figs/*.png
 figs/svg
 figs/svg/*
 *.sketch
