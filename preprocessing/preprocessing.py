@@ -5,7 +5,7 @@ import xesmf as xe # for regridding
 import ipdb
 
 
-from utils import gdal_reproject, bands_to_time, convert_to_same_grid, save_netcdf, select_same_time_slice
+from utils import gdal_reproject, bands_to_time, convert_to_same_grid, select_same_time_slice
 
 class Cleaner:
     """Base class for preprocessing the input data.
