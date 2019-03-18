@@ -27,7 +27,7 @@ class Cleaner:
         self.data_path = Path(data_path)
 
         ipdb.set_trace()
-        if ('modis' in self.data_path.as_posix()) or ('gleam' in self.data_path.as_posix()):
+        if ('modis' in self.data_path.as_posix()) or ('gleam' in self.data_path.as_posix()) or ('GLEAM' in self.data_path.as_posix()):
             assert self.reference_data_path.exists(), f"The HOLAPS data has to be preprocessed and saved BEFORE you can preprocess the MODIS or GLEAM data. This is because the preprocessed HOLAPS data is needed for converting to the same spatial and temporal resolutions."
 
         # open the datasets
@@ -204,6 +204,6 @@ class GleamCleaner(Cleaner):
 #
 #     return repr_data
 
-h = HolapsCleaner()
+# h = HolapsCleaner()
 g = GleamCleaner()
 m = ModisCleaner()
