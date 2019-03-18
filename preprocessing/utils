@@ -1,0 +1,22 @@
+def gdal_reproject(infile, outfile, **kwargs):
+    """Use gdalwarp to reproject one file to another
+
+    Help:
+    ----
+    https://www.gdal.org/gdalwarp.html
+    """
+    to_proj4_string = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    resample_method = 'near'
+
+    # check options
+    valid_resample_methods = ['average','near','bilinear','cubic','cubicspline','lanczos','mode','max','min','med','q1','q3']
+    assert resample_method in valid_resample_methods, f"Resample method not Valid. Must be one of: {valid_resample_methods} Currently: {resample_method}"
+
+    cmd = f'gdalwarp -t_srs "{to_proj4_string}" -of netCDF -r average -dstnodata -9999 -ot Float32 {infile} {outfile}'
+
+    # run command
+    print(f"#### Running command: {cmd} ####")
+    os.system(cmd)
+    print(f"#### Run command {cmd} \n FILE REPROJECTED ####")
+
+    return

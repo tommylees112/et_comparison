@@ -8,6 +8,14 @@ https://www.ntsg.umt.edu/project/modis/mod16.php
 - [x] OR convert MODIS ET -> mm/day
 - [x] Copy the HOLAPS mask to other datasets
 - [] CLEAN the exploration code into more useful set of functions (too much copy+paste ...)
+- [] New structure for the code::
+```
+run.py
+engineer
+    - preprocessing.py [BaseCleaner > HolapsCleaner,ModisCleaner,GleamCleaner]
+    - engineer.py 
+    - plotting.py
+```
 
 ```python
 """

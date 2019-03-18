@@ -8,5 +8,6 @@ figs/svg
 figs/svg/*
 *.sketch
 
-figs/
-figs/*
+figs/*.png
+
+.DS_Store
