@@ -34,7 +34,6 @@ class Cleaner:
 
         # open the datasets
         self.raw_data = xr.open_dataset(self.data_path)
-        self.reference_ds = xr.open_dataset(self.reference_data_path)
 
         # start with clean data as a copy of the raw data
         self.clean_data = self.raw_data.copy()
@@ -71,7 +70,7 @@ class HolapsCleaner(Cleaner):
 
     def __init__(self, data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa.nc'):
         ipdb.set_trace()
-        super().__init__(data_path=data_path)
+        super(HolapsCleaner, self).__init__(data_path=data_path)
 
 
 
@@ -96,6 +95,7 @@ class ModisCleaner(Cleaner):
         reference_data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
         ):
         self.reference_data_path = Path(reference_data_path)
+        super(ModisCleaner,self).__init__(data_path="/soge-home/projects/crop_yield/EGU_compare/EA_evaporation_modis.nc")
 
     def modis_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
@@ -112,6 +112,7 @@ class GleamCleaner(Cleaner):
         reference_data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
         ):
         self.reference_data_path = Path(reference_data_path)
+        super(GleamCleaner,self).__init__(data_path="/soge-home/projects/crop_yield/EGU_compare/EA_GLEAM_evap_transp_2001_2015.nc")
 
     def gleam_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
