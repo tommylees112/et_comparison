@@ -158,6 +158,7 @@ class GleamCleaner(Cleaner):
 
     def preprocessing(self):
         # Resample the timesteps to END OF MONTH
+        return
 
 
 # def convert_to_same_grid(self, method="nearest_s2d"):
