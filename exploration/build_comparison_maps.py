@@ -1,17 +1,16 @@
 # build_comparison_maps.py
-
 import xarray as xr
-# import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import warnings
 import seaborn as sns
-import os
 import xesmf as xe # for regridding
 
+import warnings
+import os
 
 %matplotlib
+
 
 def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
     """ Use xEMSF package to regrid ds to the same grid as reference_ds """
@@ -26,7 +25,7 @@ def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
 
     # create the regridder object
     # xe.Regridder(grid_in, grid_out, method='bilinear')
-    regridder = xe.Regridder(ds, ds_out, 'nearest_s2d', reuse_weights=True)
+    regridder = xe.Regridder(ds, ds_out, method, reuse_weights=True)
 
     # IF it's a dataarray just do the original transformations
     if isinstance(ds, xr.core.dataarray.DataArray):
@@ -102,6 +101,7 @@ def drop_nans_and_flatten(dataArray):
     """
     # drop NaNs and flatten
     return dataArray.values[~np.isnan(dataArray.values)]
+
 
 
 def bands_to_time(da, times, var_name="LE_Mean"):
@@ -269,45 +269,206 @@ mask['time'] = holaps.time
 
 # mask the other datasets
 gleam_msk = gleam.where(~mask)
+gleam_msk.attrs['units'] = "mm day-1"
 modis_msk = modis.where(~mask)
 
-"""
-Problems with the data:
-----------------------
-[x] Different units:
-    holaps = W m-2
-    modis = mm/m
-    gleam = ???
+#%%
+# ------------------------------------------------------------------------------
+# Merge into one big xr.Dataset
+# ------------------------------------------------------------------------------
+gleam_msk = gleam_msk.rename('gleam_evapotranspiration')
+modis_msk = modis_msk.rename('modis_evapotranspiration')
+holaps_repr = holaps_repr.rename('holaps_evapotranspiration')
+ds = xr.merge([holaps_repr,gleam_msk,modis_msk])
 
-    Convert: W m-2 to mm of water
-    (https://www.researchgate.net/post/How_to_convert_30minute_evapotranspiration_in_watts_to_millimeters)
-    1 Watt /m2 = 0.0864 MJ /m2 /day
+# if the .nc file doesnt exist then save it
+if not os.path.isfile('all_vars_ds.nc'):
+    ds.to_netcdf('all_vars_ds.nc')
+else:
+    ds = xr.open_dataset('all_vars_ds.nc')
 
-[x] Different variables:
-    holaps: mean monthly latent heat flux
-    modis: monthly mean of daily evapotranspiration
-    gleam = ???
+# Get the values where ALL DATASETS are not null
+valid_mask = (
+    ds.holaps_evapotranspiration.notnull()
+    & ds.modis_evapotranspiration.notnull()
+    & ds.gleam_evapotranspiration.notnull()
+)
+ds_valid = ds.where(valid_mask)
 
-[x] Timesteps:
-     modis starts in February 2001 for some reason
+#%%
+# ------------------------------------------------------------------------------
+# Analysis by Elevation: group by elevation
+# ------------------------------------------------------------------------------
 
-[x] Different masks:
-    HOLAPS masks out the water areas
-    GLEAM masks out some of the water areas
-    MODIS has no mask for the water areas
+topo = xr.open_rasterio('../topography/ETOPO1_Ice_g.tif')
+topo = topo.drop('band')
+topo = topo.sel(band=0)
+topo.name = "elevation"
+# topo = topo.to_dataset()
 
-[x] Different projections
-    sincrs = "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m"
-    llcrs = "+proj=longlat +ellps=WGS84 +datum=WGS84"
+def select_east_africa(ds):
+    """ """
+    lonmin=32.6
+    lonmax=51.8
+    latmin=-5.0
+    latmax=15.2
 
-[x] Different Resolutions
-    GLEAM = lat: 81, lon: 77
-    MODIS = longitude: 231, latitude: 242
-    HOLAPS = lat: 414, lon: 454
+    return ds.sel(y=slice(latmax,latmin),x=slice(lonmin, lonmax))
 
-[x] Different Colorbars
+if not os.path.isfile('global_topography.nc'):
+    topo.to_netcdf('global_topography.nc')
 
-"""
+topo = select_east_africa(topo)
+topo = topo.rename({'y':'lat','x':'lon'})
+
+if not os.path.isfile('EA_topography.nc'):
+    topo.to_netcdf('EA_topography.nc')
+
+# convert to same grid as the other data (ds_valid)
+topo = convert_to_same_grid(ds_valid, topo, method="bilinear")
+
+# mask the same areas as other data (ds_valid)
+mask = get_holaps_mask(ds_valid.holaps_evapotranspiration)
+topo = topo.where(~mask)
+
+
+
+# ------------------------------------------------------------------------------
+# plot topo histogram
+t = drop_nans_and_flatten(topo)
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
+fig.savefig('figs/topo_histogram.png')
+plt.close()
+
+# plot topo histogram WITH QUINTILES (0,0.2,0.4,0.6,0.8,1.0)
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
+# get the qunitile values
+qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
+# plot vertical lines at the given quintile value
+[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
+fig.savefig('figs/topo_histogram_quintiles.png')
+plt.close()
+
+# ------------------------------------------------------------------------------
+# GROUPBY
+topo.name = 'elevation'
+topo = topo.to_dataset()
+bins = topo.groupby_bins(group='elevation',bins=10)
+intervals = bins.mean().elevation_bins.values
+left_bins = [interval.left for interval in intervals]
+
+# plot to check WHERE the bins are
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+[ax.axvline(bin, ymin=0,ymax=1,color='r',label=f'Bin') for bin in left_bins];
+
+# [bins for bins in
+topo_bins = xr.concat([topo.where(
+                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
+            )
+            for interval in intervals ]
+)
+topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
+
+# repeat for 60 timesteps
+topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+topo_bins = topo_bins.rename({'concat_dims':'time'})
+topo_bins['time'] = ds_valid.time
+
+# select and plot the values at different elevations
+topo_bins.isel(elevation_bins=0)
+
+#
+# ds_valid.where(topo_bins.isel(elevation_bins=0).elevation.notnull())
+
+def get_unmasked_data(dataArray, dataMask):
+    """ """
+    return dataArray.where(dataMask)
+
+
+    # data = ds_valid.where(
+    #  topo_bins.isel(elevation_bins=i).elevation.notnull()
+    # ).holaps_evapotranspiration.mean(dim='time')
+
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+colors = [h_col, m_col, g_col]
+kwargs = {"vmin":0,"vmax":3.5}
+interval_ranges = [(interval.left, interval.right) for interval in intervals]
+
+for i in range(10):
+    scale=1.5
+    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
+    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
+
+    for j, dataset in enumerate(['holaps','modis','gleam']):
+        dataArray = ds_valid[f'{dataset}_evapotranspiration']
+        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
+        color = colors[j]
+        # get the axes that correspond to the different rows
+        ax_map = axs[0,j]
+        ax_map.set_title(f'{dataset} Evapotranspiration')
+        ax_hist = axs[1,j]
+        ax_hist.set_ylim([0,1.1])
+        ax_hist.set_xlim([0,7])
+        # plot the maps
+        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
+        # plot the histograms
+        d = drop_nans_and_flatten(dataArray)
+        sns.distplot(d, ax=ax_hist,color=color)
+
+    elevation_range = interval_ranges[i]
+    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
+    fig.savefig(f'figs/elevation_bin{i}.png')
+
+#%%
+# ------------------------------------------------------------------------------
+# Geographic plotting
+# ------------------------------------------------------------------------------
+import cartopy.crs as ccrs
+
+def plot_xarray_on_map(da,borders=True,coastlines=True,**kwargs):
+    """"""
+    # get the center points for the maps
+    mid_lat = np.mean(da.lat.values)
+    mid_lon = np.mean(da.lon.values)
+    # create the base layer
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.Orthographic(mid_lon, mid_lat))
+    # ax = plt.axes(projection=ccrs.Orthographic(mid_lon, mid_lat))
+
+    vmin = kwargs.pop('vmin', None)
+    vmax = kwargs.pop('vmax', None)
+    da.plot(ax=ax, transform=ccrs.PlateCarree(),vmin=vmin, vmax=vmax);
+
+    ax.coastlines();
+    ax.add_feature(cartopy.feature.BORDERS,linestyle=':');
+    fig = plt.gcf()
+    return fig, ax
+
+kwargs = {"vmin":0,"vmax":3.5}
+fig1, ax1 = plot_xarray_on_map(ds_valid.holaps_evapotranspiration.mean(dim='time'),**kwargs)
+fig1.suptitle('Holaps Evapotranspiration')
+plt.gca().outline_patch.set_visible(False)
+fig1.savefig('figs/holaps_clean_et_map.png')
+plt.close()
+
+fig2, ax2 = plot_xarray_on_map(ds_valid.modis_evapotranspiration.mean(dim='time'),**kwargs)
+fig2.suptitle('MODIS Evapotranspiration')
+plt.gca().outline_patch.set_visible(False)
+fig2.savefig('figs/modis_clean_et_map.png')
+plt.close()
+
+fig3, ax3 = plot_xarray_on_map(ds_valid.gleam_evapotranspiration.mean(dim='time'),**kwargs)
+fig3.suptitle('GLEAM Evapotranspiration')
+plt.gca().outline_patch.set_visible(False)
+fig3.savefig('figs/gleam_clean_et_map.png')
+plt.close()
 
 #%%
 # ------------------------------------------------------------------------------
@@ -373,12 +534,12 @@ g_col = sns.color_palette()[2]
 # Plot holaps
 # -----------
 fig1,ax1=plt.subplots(figsize=(12,8))
-h = drop_nans_and_flatten(holaps)
+h = drop_nans_and_flatten(holaps_repr)
 
 sns.set_color_codes()
 sns.distplot(h,ax=ax1, color=h_col)
 
-ax1.set_title(f'Density Plot of HOLAPS Mean Latent Heat Flux [{holaps.units}]')
+ax1.set_title(f'Density Plot of HOLAPS Mean Monthly Evapotranspiration [{holaps_repr.units}]')
 ax1.set_xlabel(f'Mean Latent Heat Flux [{holaps.units}]')
 fig1.savefig('figs/holaps_hist1.png')
 # fig1.savefig('figs/holaps_hist1.svg')
@@ -386,7 +547,7 @@ fig1.savefig('figs/holaps_hist1.png')
 # Plot modis
 # -----------
 fig2,ax2=plt.subplots(figsize=(12,8))
-m = drop_nans_and_flatten(modis)
+m = drop_nans_and_flatten(modis_msk)
 
 sns.set_color_codes()
 sns.distplot(m,ax=ax2, color=m_col)
@@ -399,28 +560,28 @@ fig2.savefig('figs/modis_hist1.png')
 # Plot gleam
 # -----------
 fig3,ax3=plt.subplots(figsize=(12,8))
-g = drop_nans_and_flatten(gleam)
+g = drop_nans_and_flatten(gleam_msk)
 
 sns.set_color_codes()
 sns.distplot(g,ax=ax3, color=g_col)
 
-ax3.set_title(f'Density Plot of GLEAM Monthly mean daily Actual Evapotranspiration [mm / day] ')
+ax3.set_title(f'Density Plot of GLEAM Monthly mean daily Actual Evapotranspiration [{gleam_msk.units}] ')
 ax3.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [mm / day]')
 fig3.savefig('figs/gleam_hist1.png')
 # fig3.savefig('figs/gleam_hist1.svg')
-
-# plot holaps_reprojected
-# -----------------------
-fig4,ax4=plt.subplots(figsize=(12,8))
-h_repr = drop_nans_and_flatten(holaps_repr)
-
-sns.set_color_codes()
-sns.distplot(h_repr,ax=ax4, color=h_col)
-
-ax4.set_title(f'Density Plot of HOLAPS Monthly Actual Evapotranspiration [mm day-1] ')
-ax4.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [mm day-1]')
-fig4.savefig('figs/holaps_repr_hist1.png')
-# fig4.savefig('figs/holaps_repr_hist1.svg')
+#
+# # plot holaps_reprojected
+# # -----------------------
+# fig4,ax4=plt.subplots(figsize=(12,8))
+# h_repr = drop_nans_and_flatten(holaps_repr)
+#
+# sns.set_color_codes()
+# sns.distplot(h_repr,ax=ax4, color=h_col)
+#
+# ax4.set_title(f'Density Plot of HOLAPS Monthly Actual Evapotranspiration [mm day-1] ')
+# ax4.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [mm day-1]')
+# fig4.savefig('figs/holaps_repr_hist1.png')
+# # fig4.savefig('figs/holaps_repr_hist1.svg')
 
 #%%
 # ------------------------------------------------------------------------------
