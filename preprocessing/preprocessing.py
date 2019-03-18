@@ -5,7 +5,7 @@ import xesmf as xe # for regridding
 import ipdb
 
 
-from utils import gdal_reproject, bands_to_time, convert_to_same_grid
+from utils import gdal_reproject, bands_to_time, convert_to_same_grid, save_netcdf, select_same_time_slice
 
 class Cleaner:
     """Base class for preprocessing the input data.
@@ -23,12 +23,10 @@ class Cleaner:
     - Update the 'clean_data' each time a transformation is applied
     """
 
-    def __init__(self, data_path,
-                 reproject_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_reproject.nc'
-                 ):
+    def __init__(self, data_path):
         self.data_path = Path(data_path)
-        self.reproject_path = Path(reproject_path)
 
+        ipdb.set_trace()
         if ('modis' in self.data_path.as_posix()) or ('gleam' in self.data_path.as_posix()):
             assert self.reference_data_path.exists(), f"The HOLAPS data has to be preprocessed and saved BEFORE you can preprocess the MODIS or GLEAM data. This is because the preprocessed HOLAPS data is needed for converting to the same spatial and temporal resolutions."
 
@@ -49,8 +47,8 @@ class Cleaner:
 
     def resample_time(self, resample_str="M"):
         """ should resample to the given timestep """
-        clean_data = self.clean_data.resample(time=resample_str).first()
-        self.update_clean_data(clean_data, msg="Resampled time ")
+        resampled_time_data = self.clean_data.resample(time=resample_str).first()
+        self.update_clean_data(resampled_time_data, msg="Resampled time ")
 
         return
 
@@ -61,6 +59,9 @@ class Cleaner:
         raise NotImplementedError
 
 
+    def preprocess(self):
+        """ The preprocessing steps (relatively unique for each dtype) """
+        raise NotImplementedError
 
 
 
@@ -70,22 +71,48 @@ class HolapsCleaner(Cleaner):
 
     def __init__(self):
         data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa.nc'
+        reproject_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_reproject.nc'
+
         super(HolapsCleaner, self).__init__(data_path=data_path)
+        self.reproject_path = Path(reproject_path)
 
 
-
-    def reproject(self, times):
+    def reproject(self):
         """ reproject to WGS84 / geographic latlon """
         if not self.reproject_path.is_file():
             gdal_reproject(infile=self.clean_data, outfile=self.reproject_path)
-        repr_data = xr.open_dataset(self.reproject_path)
-        repr_data = bands_to_time(repr_data, times, var_name="LE_Mean")
 
-        self.clean_data = repr_data
+        repr_data = xr.open_dataset(self.reproject_path)
+
+        # get the timestamps from the original holaps data
+        h_times = self.clean_data.time
+        # each BAND is a time (multiple raster images 1 per time)
+        repr_data = bands_to_time(repr_data, h_times, var_name="LE_Mean")
+
+        # TODO: ASSUMPTION / PROBLEM
+        warnings.warn('TODO: No idea why but the values appear to be 10* bigger than the pre-reprojected holaps data')
+        holaps_repr /= 10 # WHY ARE THE VALUES 10* bigger?
+
+        self.update_clean_data(repr_data, "Data Reprojected to WGS84")
+        return
+
+
+    def convert_units(self):
+        # Convert from latent heat (w m-2) to evaporation (mm day-1)
+        holaps_mm = self.clean_data / 28
+        holaps_mm.name = 'Evapotranspiration'
+        holaps_mm['units'] = "mm day-1 [w m-2 / 28]"
+        self.update_clean_data(holaps_mm, msg="Transform Latent Heat (w m-2) to Evaporation (mm day-1)")
+
+        return
+
 
     def preprocess():
-        # reproject the file from MODIS to
+        # reproject the file from sinusoidal to WGS84
         self.reproject()
+
+        # save_netcdf(xr_obj, filepath)
+        #
 
 
 
@@ -98,7 +125,7 @@ class ModisCleaner(Cleaner):
         data_path = "/soge-home/projects/crop_yield/EGU_compare/EA_evaporation_modis.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        super(ModisCleaner,self).__init__(data_path=data_path)
+        super(ModisCleaner, self).__init__(data_path=data_path)
 
     def modis_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
@@ -117,7 +144,10 @@ class GleamCleaner(Cleaner):
         data_path = "/soge-home/projects/crop_yield/EGU_compare/EA_GLEAM_evap_transp_2001_2015.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        super(GleamCleaner,self).__init__(data_path=data_path)
+        super(GleamCleaner, self).__init__(data_path=data_path)
+
+        # extract the variable of interest (TO xr.DataArray)
+        self.update_clean_data(self.raw_data.evaporation, msg="Extract evaporation from GLEAM xr.Dataset")
 
 
     def gleam_to_holaps_grid(self):
@@ -125,6 +155,9 @@ class GleamCleaner(Cleaner):
         # UPDATE THE SELF.CLEAN_DATA
         self.update_clean_data(regrid_data, msg="GLEAM Data Regridded to same as HOLAPS")
         return repr_data
+
+    def preprocessing(self):
+        # Resample the timesteps to END OF MONTH
 
 
 # def convert_to_same_grid(self, method="nearest_s2d"):

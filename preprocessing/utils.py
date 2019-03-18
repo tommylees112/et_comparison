@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 import xarray
 
+# ------------------------------------------------------------------------------
+# Functions for reprojecting using GDAL and reading resulting .nc file back
+# ------------------------------------------------------------------------------
+
 def gdal_reproject(infile, outfile, **kwargs):
     """Use gdalwarp to reproject one file to another
 
@@ -42,6 +46,9 @@ def bands_to_time(da, times, var_name):
 
     return timestamped_da
 
+# ------------------------------------------------------------------------------
+# Functions for matching resolutions / gridsizes (time and space)
+# ------------------------------------------------------------------------------
 
 def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
     """ Use xEMSF package to regrid ds to the same grid as reference_ds """
@@ -82,3 +89,51 @@ def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
     print(f"Regridded from {(regridder.Ny_in, regridder.Nx_in)} to {(regridder.Ny_out, regridder.Nx_out)}")
 
     return ds
+
+
+
+def select_same_time_slice(reference_ds, ds):
+    """ Select the values for the same timestep as the reference ds"""
+    # CHECK THEY ARE THE SAME FREQUENCY
+    # get the frequency of the time series from reference_ds
+    freq = pd.infer_freq(reference_ds.time.values)
+    old_freq = pd.infer_freq(ds.time.values)
+    warnings.warn('Disabled the assert statement. ENSURE FREQUENCIES THE SAME (e.g. monthly)')
+    # assert freq == old_freq, f"The frequencies should be the same! currenlty ref: {freq} vs. old: {old_freq}"
+
+    # get the STARTING time point from the reference_ds
+    min_time = reference_ds.time.min().values
+    max_time = reference_ds.time.max().values
+    orig_time_range = pd.date_range(min_time, max_time, freq=freq)
+    # EXTEND the original time_range by 1 (so selecting the whole slice)
+    # because python doesn't select the final in a range
+    periods = len(orig_time_range) # + 1
+    # create new time series going ONE EXTRA PERIOD
+    new_time_range = pd.date_range(min_time, freq=freq, periods=periods)
+    new_max = new_time_range.max()
+
+    # select using the NEW MAX as upper limit
+    ds = ds.sel(time=slice(min_time, new_max))
+    # assert reference_ds.time.shape[0] == ds.time.shape[0],"The time dimensions should match, currently reference_ds.time dims {reference_ds.time.shape[0]} != ds.time dims {ds.time.shape[0]}"
+
+    print_time_min = pd.to_datetime(ds.time.min().values)
+    print_time_max = pd.to_datetime(ds.time.max().values)
+    try:
+        vars = [i for i in ds.var().variables]
+    except:
+        vars = ds.name
+    # ref_vars = [i for i in reference_ds.var().variables]
+    print(f"Select same timeslice for ds with vars: {vars}. Min {print_time_min} Max {print_time_max}")
+
+    return ds
+
+# ------------------------------------------------------------------------------
+# Functions for working with .nc files
+# ------------------------------------------------------------------------------
+
+
+def save_netcdf(xr_obj, filepath):
+    """"""
+    xr_obj.to_netcdf(filepath)
+    print(f"File Saved: {filepath}")
+    return

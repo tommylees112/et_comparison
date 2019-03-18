@@ -221,7 +221,7 @@ data_dir="EA_GLEAM_evap_transp_2001_2015.nc"
 gleam = xr.open_dataset(data_dir).evaporation
 # resample to monthly & select same time range as
 gleam = gleam.resample(time='M').mean(dim='time')
-gleam = select_same_time_slice(holaps,gleam)
+gleam = select_same_time_slice(holaps, gleam)
 gleam.attrs['units'] = "mm day-1"
 # REGRID onto same grid as HOLAPS
 gleam = convert_to_same_grid(holaps_repr, gleam, method="nearest_s2d")
