@@ -70,8 +70,8 @@ class HolapsCleaner(Cleaner):
 
 
     def __init__(self, data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa.nc'):
-        super().__init__(data_path=data_path)
         ipdb.set_trace()
+        super().__init__(data_path=data_path)
 
 
 
