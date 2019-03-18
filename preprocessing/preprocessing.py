@@ -97,11 +97,11 @@ class ModisCleaner(Cleaner):
         ):
         self.reference_data_path = Path(reference_data_path)
 
-    def ():
+    def modis_to_holaps_grid(self):
         convert_to_same_grid(self.reference_ds, self., method="nearest_s2d")
         # UPDATE THE SELF.CLEAN_DATA
         self.update_clean_data(repr_data, msg="Data Reprojected")
-    return repr_data
+        return repr_data
 
 
 class GleamCleaner(Cleaner):
@@ -113,7 +113,7 @@ class GleamCleaner(Cleaner):
         ):
         self.reference_data_path = Path(reference_data_path)
 
-    def ():
+    def gleam_to_holaps_grid(self):
         convert_to_same_grid(self.reference_ds, self., method="nearest_s2d")
         # UPDATE THE SELF.CLEAN_DATA
         self.update_clean_data(repr_data, msg="Data Reprojected")
