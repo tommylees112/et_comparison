@@ -43,7 +43,7 @@ class Cleaner:
     def update_clean_data(self, clean_data, msg=""):
         """ """
         self.clean_data = clean_data
-        print("self.clean_data Updated: ", msg)
+        print("***** self.clean_data Updated: ", msg," *****")
 
         return
 
@@ -98,9 +98,9 @@ class ModisCleaner(Cleaner):
         self.reference_data_path = Path(reference_data_path)
 
     def modis_to_holaps_grid(self):
-        convert_to_same_grid(self.reference_ds, self., method="nearest_s2d")
+        regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
         # UPDATE THE SELF.CLEAN_DATA
-        self.update_clean_data(repr_data, msg="Data Reprojected")
+        self.update_clean_data(regrid_data, msg="MODIS Data Regridded to same as HOLAPS")
         return repr_data
 
 
@@ -114,9 +114,9 @@ class GleamCleaner(Cleaner):
         self.reference_data_path = Path(reference_data_path)
 
     def gleam_to_holaps_grid(self):
-        convert_to_same_grid(self.reference_ds, self., method="nearest_s2d")
+        regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
         # UPDATE THE SELF.CLEAN_DATA
-        self.update_clean_data(repr_data, msg="Data Reprojected")
+        self.update_clean_data(regrid_data, msg="GLEAM Data Regridded to same as HOLAPS")
         return repr_data
 
 
