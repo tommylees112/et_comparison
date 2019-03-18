@@ -68,8 +68,8 @@ class HolapsCleaner(Cleaner):
     """Preprocess the HOLAPS dataset"""
 
 
-    def __init__(self, data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa.nc'):
-        ipdb.set_trace()
+    def __init__(self):
+        data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa.nc'
         super(HolapsCleaner, self).__init__(data_path=data_path)
 
 
@@ -87,15 +87,18 @@ class HolapsCleaner(Cleaner):
         # reproject the file from MODIS to
         self.reproject()
 
+
+
 class ModisCleaner(Cleaner):
     """Preprocess the MODIS dataset"""
 
 
-    def __init__(self,
-        reference_data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
-        ):
+    def __init__(self):
+        reference_data_path = '/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
+        data_path = "/soge-home/projects/crop_yield/EGU_compare/EA_evaporation_modis.nc"
+
         self.reference_data_path = Path(reference_data_path)
-        super(ModisCleaner,self).__init__(data_path="/soge-home/projects/crop_yield/EGU_compare/EA_evaporation_modis.nc")
+        super(ModisCleaner,self).__init__(data_path=data_path)
 
     def modis_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
@@ -104,15 +107,18 @@ class ModisCleaner(Cleaner):
         return repr_data
 
 
+
 class GleamCleaner(Cleaner):
     """Preprocess the GLEAM dataset"""
 
 
-    def __init__(self,
-        reference_data_path='/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
-        ):
+    def __init__(self):
+        reference_data_path = '/soge-home/projects/crop_yield/EGU_compare/holaps_africa_test.nc'
+        data_path = "/soge-home/projects/crop_yield/EGU_compare/EA_GLEAM_evap_transp_2001_2015.nc"
+
         self.reference_data_path = Path(reference_data_path)
-        super(GleamCleaner,self).__init__(data_path="/soge-home/projects/crop_yield/EGU_compare/EA_GLEAM_evap_transp_2001_2015.nc")
+        super(GleamCleaner,self).__init__(data_path=data_path)
+
 
     def gleam_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
@@ -165,3 +171,5 @@ class GleamCleaner(Cleaner):
 #     return repr_data
 
 h = HolapsCleaner()
+g = GleamCleaner()
+m = ModisCleaner()
