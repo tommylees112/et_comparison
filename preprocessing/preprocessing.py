@@ -237,7 +237,7 @@ class ModisCleaner(Cleaner):
         data_path = self.base_data_path / "EA_evaporation_modis.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        self.reference_ds = xr.open_dataset(self.reference_data_path)
+        self.reference_ds = xr.open_dataset(self.reference_data_path).holaps_evapotranspiration
         super(ModisCleaner, self).__init__(data_path=data_path)
 
         self.update_clean_data(
@@ -331,7 +331,7 @@ class GleamCleaner(Cleaner):
         data_path = self.base_data_path / "EA_GLEAM_evap_transp_2001_2015.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        self.reference_ds = xr.open_dataset(self.reference_data_path)
+        self.reference_ds = xr.open_dataset(self.reference_data_path).holaps_evapotranspiration
         super(GleamCleaner, self).__init__(data_path=data_path)
 
         # extract the variable of interest (TO xr.DataArray)
