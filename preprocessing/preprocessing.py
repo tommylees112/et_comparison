@@ -146,8 +146,8 @@ class HolapsCleaner(Cleaner):
 
     def chop_EA_region(self):
         """ cheeky little bit of bash scripting with string interpolation (kids don't try this at home) """
-        infile = self.base_data_path / 'holaps_reprojected.nc'
-        outfile = self.base_data_path / 'holaps_EA.nc'
+        in_file = self.base_data_path / 'holaps_reprojected.nc'
+        out_file = self.base_data_path / 'holaps_EA.nc'
         lonmin=32.6
         lonmax=51.8
         latmin=-5.0
