@@ -47,7 +47,7 @@ class Cleaner:
         self.clean_data = self.raw_data.copy()
 
 
-    @staticmethod
+
     def update_clean_data(self, clean_data, msg=""):
         """ """
         self.clean_data = clean_data
@@ -56,7 +56,7 @@ class Cleaner:
         return
 
 
-    @staticmethod
+
     def correct_time_slice(self):
         """select the same time slice as the reference data"""
         assert self.reference_ds, "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
@@ -66,7 +66,7 @@ class Cleaner:
         return
 
 
-    @staticmethod
+
     def resample_time(self, resample_str="M"):
         """ should resample to the given timestep """
         resampled_time_data = self.clean_data.resample(time=resample_str).first()
@@ -75,7 +75,7 @@ class Cleaner:
         return
 
 
-    @staticmethod
+
     def regrid_to_reference(self):
         """ regrid data (spatially) onto the same grid as referebce data """
         assert self.reference_ds, "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
@@ -86,7 +86,7 @@ class Cleaner:
         return
 
 
-    @staticmethod
+
     def use_reference_mask():
         assert self.reference_ds, "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
         assert self.mask, "self.mask does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
@@ -96,24 +96,24 @@ class Cleaner:
         return
 
 
-    @staticmethod
+
     def mask_illegitimate_values(self):
         # mask out the missing values (coded as something else)
         return NotImplementedError
 
 
-    @staticmethod
+
     def convert_units(self):
         """ convert to the equivalent units """
         raise NotImplementedError
 
 
-    @staticmethod
+
     def regrid_to_reference(self):
         raise NotImplementedError
 
 
-    @staticmethod
+
     def rename_xr_object(self,name):
         renamed_data = self.clean_data.rename(name)
         self.update_clean_data(renamed_data, msg=f'Data renamed {name}')
@@ -142,7 +142,7 @@ class HolapsCleaner(Cleaner):
         super(HolapsCleaner, self).__init__(data_path=data_path)
         self.reproject_path = Path(reproject_path)
 
-    @staticmethod
+
     def chop_EA_region(self):
         """ cheeky little bit of bash scripting with string interpolation (kids don't try this at home) """
         infile = self.base_data_path / 'holaps_reprojected.nc'
@@ -161,7 +161,7 @@ class HolapsCleaner(Cleaner):
         return
 
 
-    @staticmethod
+
     def reproject(self):
         """ reproject to WGS84 / geographic latlon """
         if not self.reproject_path.is_file():
@@ -184,7 +184,7 @@ class HolapsCleaner(Cleaner):
         return
 
 
-    @staticmethod
+
     def convert_units(self):
         # Convert from latent heat (w m-2) to evaporation (mm day-1)
         holaps_mm = self.clean_data / 28
@@ -230,12 +230,12 @@ class ModisCleaner(Cleaner):
         self.get_mask()
 
 
-    @staticmethod
+
     def get_mask():
         self.mask = get_holaps_mask(self.reference_ds)
 
 
-    @staticmethod
+
     def modis_to_holaps_grid(self):
         regrid_data = convert_to_same_grid(self.reference_ds, self.clean_data, method="nearest_s2d")
         # UPDATE THE SELF.CLEAN_DATA
@@ -243,7 +243,7 @@ class ModisCleaner(Cleaner):
         return repr_data
 
 
-    @staticmethod
+
     def mask_illegitimate_values(self):
         # mask out the negative values (missing values)
         masked_vals = self.clean_data.where(modis >=0)
@@ -264,7 +264,7 @@ class ModisCleaner(Cleaner):
         return
 
 
-    @staticmethod
+
     def convert_units(self):
         # convert from monthly (mm month-1) to daily (mm day-1)
         warnings.warn('Monthly -> Daily should be unique to each month (month length). Currently dividing by an average of all month lengths (30.417)')
@@ -274,7 +274,7 @@ class ModisCleaner(Cleaner):
         return
 
 
-    @staticmethod
+
     def rename_lat_lon(self):
         rename_latlon = self.clean_data.rename({'longitude':'lon','latitude':'lat'})
         update_clean_data(rename_latlon, msg='Renamed latitude,longitude => lat,lon')
@@ -326,12 +326,12 @@ class GleamCleaner(Cleaner):
         self.get_mask()
 
 
-    @staticmethod
+
     def get_mask():
         self.mask = get_holaps_mask(self.reference_ds)
 
 
-    @staticmethod
+
     def convert_units(self):
         # convert unit label to 'mm day-1'
         self.clean_data.attrs['units'] = "mm day-1"
