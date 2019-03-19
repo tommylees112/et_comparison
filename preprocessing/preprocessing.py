@@ -14,12 +14,8 @@ if __name__ == "__main__":
 
     # merge the preprocessed data and save to netcdf
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
-    # ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration)
-valid_mask = (
-    ds.holaps_evapotranspiration.notnull()
-    & ds.modis_evapotranspiration.notnull()
-    & ds.gleam_evapotranspiration.notnull()
-)
+    ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration)
+
 
 
 
