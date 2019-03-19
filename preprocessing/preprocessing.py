@@ -32,12 +32,12 @@ class Cleaner:
         self.data_path = Path(data_path)
 
 # -------------------- THIS IS NOT THE BEST WAY TO CODE THIS -------------------
-        if ('modis' in self.data_path.as_posix()) or ('gleam' in self.data_path.as_posix()) or ('GLEAM' in self.data_path.as_posix()):
-            assert self.reference_data_path.exists(), f"The HOLAPS data has to be preprocessed and saved BEFORE you can preprocess the MODIS or GLEAM data. This is because the preprocessed HOLAPS data is needed for converting to the same spatial and temporal resolutions."
-
-            # modis and gleam need a reference_ds
-            self.reference_ds = xr.open_dataset(self.reference_data_path)
-            # modis and gleam need a mask from the reference_ds
+        # if ('modis' in self.data_path.as_posix()) or ('gleam' in self.data_path.as_posix()) or ('GLEAM' in self.data_path.as_posix()):
+        #     assert self.reference_data_path.exists(), f"The HOLAPS data has to be preprocessed and saved BEFORE you can preprocess the MODIS or GLEAM data. This is because the preprocessed HOLAPS data is needed for converting to the same spatial and temporal resolutions."
+        #
+        #     # modis and gleam need a reference_ds
+        #     self.reference_ds = xr.open_dataset(self.reference_data_path)
+        #     # modis and gleam need a mask from the reference_ds
 # -------------------- THIS IS NOT THE BEST WAY TO CODE THIS -------------------
 
         # open the datasets
@@ -223,6 +223,7 @@ class ModisCleaner(Cleaner):
         data_path = self.base_data_path / "EA_evaporation_modis.nc"
 
         self.reference_data_path = Path(reference_data_path)
+        self.reference_ds = xr.open_dataset(self.reference_data_path)
         super(ModisCleaner, self).__init__(data_path=data_path)
 
         self.update_clean_data(self.raw_data.monthly_ET, msg="Extract monthly_ET from MODIS xr.Dataset")
@@ -315,6 +316,7 @@ class GleamCleaner(Cleaner):
         data_path = self.base_data_path / "EA_GLEAM_evap_transp_2001_2015.nc"
 
         self.reference_data_path = Path(reference_data_path)
+        self.reference_ds = xr.open_dataset(self.reference_data_path)
         super(GleamCleaner, self).__init__(data_path=data_path)
 
         # extract the variable of interest (TO xr.DataArray)
