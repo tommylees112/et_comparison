@@ -67,7 +67,7 @@ class Cleaner:
     def correct_time_slice(self):
         """select the same time slice as the reference data"""
         assert (
-            self.reference_ds
+            self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
         correct_time_slice = select_same_time_slice(self.reference_ds, self.clean_data)
 
@@ -86,7 +86,7 @@ class Cleaner:
     def regrid_to_reference(self):
         """ regrid data (spatially) onto the same grid as referebce data """
         assert (
-            self.reference_ds
+            self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
 
         regrid_data = convert_to_same_grid(
@@ -98,7 +98,7 @@ class Cleaner:
 
     def use_reference_mask():
         assert (
-            self.reference_ds
+            self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
         assert (
             self.mask
