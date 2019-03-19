@@ -24,7 +24,7 @@ class RunTask:
 
         # merge the preprocessed data and save to netcdf
         ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
-        ds = get_all_valid(ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration)
+        ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration)
         save_netcdf(ds, output_ds_path, force=True)
 
 
