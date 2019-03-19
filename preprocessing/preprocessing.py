@@ -411,6 +411,7 @@ class GleamCleaner(Cleaner):
 h = HolapsCleaner()
 h.preprocess()
 g = GleamCleaner()
+g.preprocess()
 m = ModisCleaner()
 
 # ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
