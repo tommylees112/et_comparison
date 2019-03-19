@@ -116,9 +116,6 @@ class Cleaner:
         """ convert to the equivalent units """
         raise NotImplementedError
 
-    def regrid_to_reference(self):
-        raise NotImplementedError
-
     def rename_xr_object(self, name):
         renamed_data = self.clean_data.rename(name)
         self.update_clean_data(renamed_data, msg=f"Data renamed {name}")
