@@ -156,7 +156,7 @@ def select_same_time_slice(reference_ds, ds):
     min_time = datetime.datetime(2001, 1, 31)
     # --------------------------------------------------------------------------
     ds = ds.sel(time=slice(min_time, new_max))
-    assert reference_ds.time.shape[0] == ds.time.shape[0],"The time dimensions should match, currently reference_ds.time dims {reference_ds.time.shape[0]} != ds.time dims {ds.time.shape[0]}"
+    assert reference_ds.time.shape[0] == ds.time.shape[0],f"The time dimensions should match, currently reference_ds.time dims {reference_ds.time.shape[0]} != ds.time dims {ds.time.shape[0]}"
 
     print_time_min = pd.to_datetime(ds.time.min().values)
     print_time_max = pd.to_datetime(ds.time.max().values)
