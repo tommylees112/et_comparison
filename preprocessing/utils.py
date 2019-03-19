@@ -160,7 +160,7 @@ def merge_data_arrays(*DataArrays):
 
 def save_netcdf(xr_obj, filepath, force=False):
     """"""
-    if not Path(filepath).isfile():
+    if not Path(filepath).is_file():
         xr_obj.to_netcdf(filepath)
         print(f"File Saved: {filepath}")
     elif Force:
