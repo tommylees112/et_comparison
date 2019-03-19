@@ -161,7 +161,7 @@ class HolapsCleaner(Cleaner):
         print(f"Running command: {cmd}")
         os.system(cmd)
         print("Chopped East Africa from the Reprojected data")
-        re_chopped_data = xr.open_dataset(outfile)
+        re_chopped_data = xr.open_dataset(out_file)
         self.update_clean_data(
             re_chopped_data, msg="Opened the reprojected & chopped data"
         )
