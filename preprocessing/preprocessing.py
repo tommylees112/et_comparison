@@ -1,6 +1,6 @@
-from holaps_cleaner import HolapsCleaner
-from modis_cleaner import ModisCleaner
-from gleam_cleaner import GleamCleaner
+from .holaps_cleaner import HolapsCleaner
+from .modis_cleaner import ModisCleaner
+from .gleam_cleaner import GleamCleaner
 from utils import merge_data_arrays, save_netcdf, get_all_valid
 
 

@@ -174,6 +174,8 @@ m.preprocess()
 
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 
+
+
 #%%
 # ------------------------------------------------------------------------------
 # Analysis by Elevation: group by elevation
@@ -353,52 +355,49 @@ plt.close()
 # ------------------------------------------------------------------------------
 # Plot the mean spatial patterns of the RAW data
 # ------------------------------------------------------------------------------
-
 kwargs = {"vmin":0,"vmax":3.5}
 
 fig1,ax1=plt.subplots(figsize=(12,8))
-holaps.mean(dim='time').plot(ax=ax1,**kwargs)
-ax1.set_title(f"HOLAPS Mean Latent Heat Flux [{holaps.units}]")
+h.raw_data.mean(dim='time').plot(ax=ax1,**kwargs)
+ax1.set_title(f"HOLAPS Mean Latent Heat Flux [{h.raw_data.units}]")
 fig1.savefig('figs/holaps_map1.png')
 # fig1.savefig('figs/svg/holaps_map1.svg')
 
 fig2,ax2=plt.subplots(figsize=(12,8))
 # transpose because longitude/latitude => latitude/longitude for plotting
-modis.mean(dim='time').plot(ax=ax2,**kwargs)
-ax2.set_title(f"MODIS Monthly Actual Evapotranspiration [{modis.units}]")
+m.raw_data.mean(dim='time').plot(ax=ax2,**kwargs)
+ax2.set_title(f"MODIS Monthly Actual Evapotranspiration [{m.raw_data.units}]")
 fig2.savefig('figs/modis_map1.png')
 # fig2.savefig('figs/svg/modis_map1.svg')
 
 fig3,ax3=plt.subplots(figsize=(12,8))
-gleam.mean(dim='time').plot(ax=ax3,**kwargs)
-ax3.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam.units}]")
+g.raw_data.mean(dim='time').plot(ax=ax3,**kwargs)
+ax3.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{g.raw_data.units}]")
 fig3.savefig('figs/gleam_map1.png')
 # fig3.savefig('figs/svg/gleam_map1.svg')
 
+# ------------------------------------------------------------------------------
+# Plot the spatial patterns of cleaned data
+# ------------------------------------------------------------------------------
+kwargs = {"vmin":0,"vmax":3.5}
+
 fig4,ax4=plt.subplots(figsize=(12,8))
-holaps_mm.mean(dim='time').plot(ax=ax4,**kwargs)
-ax4.set_title(f"HOLAPS Mean Evapotranspiration [{holaps_mm.units}]")
+h.clean_data.mean(dim='time').plot(ax=ax4,**kwargs)
+ax4.set_title(f"HOLAPS Mean Evapotranspiration [{h.clean_data.units}]")
 fig4.savefig('figs/holaps_mm_map1.png')
 # fig4.savefig('figs/svg/holaps_mm_map1.svg')
 
-fig5,ax5=plt.subplots(figsize=(12,8))
-holaps_repr.mean(dim='time').plot(ax=ax5,**kwargs)
-ax5.set_title(f"HOLAPS Reprojected Mean Evapotranspiration [{holaps_repr.units}]")
-fig5.savefig('figs/holaps_repr_map1.png')
-# fig5.savefig('figs/svg/holaps_repr_map1.svg')
-
 fig6,ax6=plt.subplots(figsize=(12,8))
-gleam_msk.mean(dim='time').plot(ax=ax6,**kwargs)
-ax6.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{gleam_msk.units}]")
+g.clean_data.mean(dim='time').plot(ax=ax6,**kwargs)
+ax6.set_title(f"GLEAM Monthly mean daily Actual Evapotranspiration [{g.clean_data.units}]")
 fig6.savefig('figs/gleam_msk_map1.png')
 # fig5.savefig('figs/svg/holaps_repr_map1.svg')
 
 fig7,ax7=plt.subplots(figsize=(12,8))
-modis_msk.mean(dim='time').plot(ax=ax7,**kwargs)
+m.clean_data.mean(dim='time').plot(ax=ax7,**kwargs)
 ax7.set_title(f"MODIS Monthly Actual Evapotranspiration [{modis_msk.units}]")
 fig7.savefig('figs/modis_msk_map1.png')
 # fig5.savefig('figs/svg/holaps_repr_map1.svg')
-
 
 #%%
 # ------------------------------------------------------------------------------
@@ -413,41 +412,68 @@ g_col = sns.color_palette()[2]
 # Plot holaps
 # -----------
 fig1,ax1=plt.subplots(figsize=(12,8))
-h = drop_nans_and_flatten(holaps_repr)
+h_flat = drop_nans_and_flatten(ds.holaps_evapotranspiration)
 
 sns.set_color_codes()
-sns.distplot(h,ax=ax1, color=h_col)
+sns.distplot(h_flat, ax=ax1, color=h_col)
 
-ax1.set_title(f'Density Plot of HOLAPS Mean Monthly Evapotranspiration [{holaps_repr.units}]')
-ax1.set_xlabel(f'Mean Latent Heat Flux [{holaps.units}]')
+ax1.set_title(f'Density Plot of HOLAPS Mean Monthly Evapotranspiration [{ds.holaps_evapotranspiration.units}]')
+ax1.set_xlabel(f'Mean Monthly Evapotranspiration [{ds.holaps_evapotranspiration.units}]')
 fig1.savefig('figs/holaps_hist1.png')
 # fig1.savefig('figs/holaps_hist1.svg')
 
 # Plot modis
 # -----------
 fig2,ax2=plt.subplots(figsize=(12,8))
-m = drop_nans_and_flatten(modis_msk)
+m_flat = drop_nans_and_flatten(ds.modis_evapotranspiration)
 
 sns.set_color_codes()
-sns.distplot(m,ax=ax2, color=m_col)
+sns.distplot(m_flat,ax=ax2, color=m_col)
 
-ax2.set_title(f'Density Plot of MODIS Monthly Actual Evapotranspiration [{modis.units}]')
-ax2.set_xlabel(f'Monthly Actual Evapotranspiration [{modis.units}]')
+ax2.set_title(f'Density Plot of MODIS Monthly Actual Evapotranspiration [{ds.modis_evapotranspiration.units}]')
+ax2.set_xlabel(f'Monthly Actual Evapotranspiration [{ds.modis_evapotranspiration.units}]')
 fig2.savefig('figs/modis_hist1.png')
 # fig2.savefig('figs/modis_hist1.svg')
 
 # Plot gleam
 # -----------
 fig3,ax3=plt.subplots(figsize=(12,8))
-g = drop_nans_and_flatten(gleam_msk)
+g_flat = drop_nans_and_flatten(ds.gleam_evapotranspiration)
 
 sns.set_color_codes()
-sns.distplot(g,ax=ax3, color=g_col)
+sns.distplot(g_flat,ax=ax3, color=g_col)
 
-ax3.set_title(f'Density Plot of GLEAM Monthly mean daily Actual Evapotranspiration [{gleam_msk.units}] ')
-ax3.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [mm / day]')
+ax3.set_title(f'Density Plot of GLEAM Monthly mean daily Actual Evapotranspiration [{g.clean_data.units}] ')
+ax3.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [{g.clean_data.units}]')
 fig3.savefig('figs/gleam_hist1.png')
 # fig3.savefig('figs/gleam_hist1.svg')
+
+#%%
+# ------------------------------------------------------------------------------
+# Plot the Time Series of the points (spatial mean)
+# ------------------------------------------------------------------------------
+
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Plot the Time Series of different locations (spatial mean)
+# ------------------------------------------------------------------------------
+
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Plot the Time Series of different locations (points)
+# ------------------------------------------------------------------------------
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Plot the Climatology of different products
+# ------------------------------------------------------------------------------
+
+
 #
 # # plot holaps_reprojected
 # # -----------------------
