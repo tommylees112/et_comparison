@@ -95,7 +95,7 @@ class Cleaner:
         self.update_clean_data(regrid_data, msg="Data Regridded to same as HOLAPS")
         return
 
-    def use_reference_mask():
+    def use_reference_mask(self):
         assert (
             self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
