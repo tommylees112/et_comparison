@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-import xarray
+import xarray as xr
+import warnings
 
 # ------------------------------------------------------------------------------
 # Functions for reprojecting using GDAL and reading resulting .nc file back
