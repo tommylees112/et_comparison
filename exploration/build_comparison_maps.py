@@ -172,6 +172,10 @@ g.preprocess()
 m = ModisCleaner()
 m.preprocess()
 
+# fix the missing vals
+
+
+
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 
 df = ds.to_dataframe()
@@ -454,9 +458,10 @@ fig3.savefig('figs/gleam_hist1.png')
 # ------------------------------------------------------------------------------
 
 # get table of time series
-tseries = ds.mean(dim=['lat','lon']).to_dataframe().drop(columns='units')
+tseries = ds.mean(dim=['lat','lon'],skipna=True).to_dataframe().drop(columns='units')
 
 fig,ax = plt.subplots(figsize=(12,8))
+ds['time'] = [pd.to_datetime(dt) for dt in ds.time.values]
 ds.mean(dim=['lat','lon']).holaps_evapotranspiration.plot(ax=ax)
 
 #%%

@@ -125,6 +125,9 @@ def select_same_time_slice(reference_ds, ds):
     # CHECK THEY ARE THE SAME FREQUENCY
     # get the frequency of the time series from reference_ds
     freq = pd.infer_freq(reference_ds.time.values)
+    if freq == None:
+        assert False, f"Unable to infer frequency from the reference_ds timestep"
+
     old_freq = pd.infer_freq(ds.time.values)
     warnings.warn(
         "Disabled the assert statement. ENSURE FREQUENCIES THE SAME (e.g. monthly)"
