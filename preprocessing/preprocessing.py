@@ -177,7 +177,7 @@ class HolapsCleaner(Cleaner):
 
         # TODO: ASSUMPTION / PROBLEM
         warnings.warn('TODO: No idea why but the values appear to be 10* bigger than the pre-reprojected holaps data')
-        holaps_repr /= 10 # WHY ARE THE VALUES 10* bigger?
+        repr_data /= 10 # WHY ARE THE VALUES 10* bigger?
 
         self.update_clean_data(repr_data, "Data Reprojected to WGS84")
 
