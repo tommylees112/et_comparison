@@ -206,7 +206,7 @@ class HolapsCleaner(Cleaner):
         self.rename_xr_object('holaps_evapotranspiration')
         # save the netcdf file (used as reference data for MODIS and GLEAM)
         save_netcdf(self.clean_data, filepath=self.base_data_path/'holaps_EA_clean.nc')
-        ipdb.set_trace()
+        # ipdb.set_trace()
         return
 
 # ------------------------------------------------------------------------------
@@ -398,7 +398,7 @@ class GleamCleaner(Cleaner):
 #     return repr_data
 
 h = HolapsCleaner()
-h.preprocessing()
+h.preprocess()
 g = GleamCleaner()
 m = ModisCleaner()
 
