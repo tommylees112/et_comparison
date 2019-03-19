@@ -55,14 +55,14 @@ class GleamCleaner(Cleaner):
         # Resample the timesteps to END OF MONTH
         self.resample_time(resample_str="M")
         # select the correct time slice
+        ipdb.set_trace()
         self.correct_time_slice()
         # update the units
         self.convert_units()
         # regrid to same as reference data (holaps)
         self.regrid_to_reference()
-        ipdb.set_trace()
         # use the same mask as HOLAPS
-        self.use_reference_mask()
+        self.use_reference_mask() # THIS GOING WRONG
         # rename data
         self.rename_xr_object("gleam_evapotranspiration")
         # save data
