@@ -289,7 +289,7 @@ class ModisCleaner(Cleaner):
 
     def rename_lat_lon(self):
         rename_latlon = self.clean_data.rename({"longitude": "lon", "latitude": "lat"})
-        update_clean_data(rename_latlon, msg="Renamed latitude,longitude => lat,lon")
+        self.update_clean_data(rename_latlon, msg="Renamed latitude,longitude => lat,lon")
         return
 
     def preprocess(self):
