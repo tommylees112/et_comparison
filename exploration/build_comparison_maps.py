@@ -12,169 +12,25 @@ import os
 %matplotlib
 %load_ext autoreload
 
-def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
-    """ Use xEMSF package to regrid ds to the same grid as reference_ds """
-    assert ("lat" in reference_ds.dims)&("lon" in reference_ds.dims), f"Need (lat,lon) in reference_ds dims Currently: {reference_ds.dims}"
-    assert ("lat" in ds.dims)&("lon" in ds.dims), f"Need (lat,lon) in ds dims Currently: {ds.dims}"
-
-    # create the grid you want to convert TO (from reference_ds)
-    ds_out = xr.Dataset({
-        'lat': (['lat'], reference_ds.lat),
-        'lon': (['lon'], reference_ds.lon),
-    })
-
-    # create the regridder object
-    # xe.Regridder(grid_in, grid_out, method='bilinear')
-    regridder = xe.Regridder(ds, ds_out, method, reuse_weights=True)
-
-    # IF it's a dataarray just do the original transformations
-    if isinstance(ds, xr.core.dataarray.DataArray):
-        ds = regridder(ds)
-    # OTHERWISE loop through each of the variables, regrid the datarray then recombine into dataset
-    elif isinstance(ds, xr.core.dataset.Dataset):
-        vars = [i for i in ds.var().variables]
-        if len(vars) ==1 :
-            ds = regridder(ds)
-        else:
-            output_dict = {}
-            # LOOP over each variable and append to dict
-            for var in vars:
-                print(f"- regridding var {var} -")
-                da = ds[var]
-                da = regridder(da)
-                output_dict[var] = da
-            # REBUILD
-            ds = xr.Dataset(output_dict)
-    else:
-        assert False, "This function only works with xarray dataset / dataarray objects"
-
-    print(f"Regridded from {(regridder.Ny_in, regridder.Nx_in)} to {(regridder.Ny_out, regridder.Nx_out)}")
-
-    return ds
-
-
-
-def select_same_time_slice(reference_ds, ds):
-    """ Select the values for the same timestep as the reference ds"""
-    # CHECK THEY ARE THE SAME FREQUENCY
-    # get the frequency of the time series from reference_ds
-    freq = pd.infer_freq(reference_ds.time.values)
-    old_freq = pd.infer_freq(ds.time.values)
-    warnings.warn('Disabled the assert statement. ENSURE FREQUENCIES THE SAME (e.g. monthly)')
-    # assert freq == old_freq, f"The frequencies should be the same! currenlty ref: {freq} vs. old: {old_freq}"
-
-    # get the STARTING time point from the reference_ds
-    min_time = reference_ds.time.min().values
-    max_time = reference_ds.time.max().values
-    orig_time_range = pd.date_range(min_time, max_time, freq=freq)
-    # EXTEND the original time_range by 1 (so selecting the whole slice)
-    # because python doesn't select the final in a range
-    periods = len(orig_time_range) # + 1
-    # create new time series going ONE EXTRA PERIOD
-    new_time_range = pd.date_range(min_time, freq=freq, periods=periods)
-    new_max = new_time_range.max()
-
-    # select using the NEW MAX as upper limit
-    ds = ds.sel(time=slice(min_time, new_max))
-    # assert reference_ds.time.shape[0] == ds.time.shape[0],"The time dimensions should match, currently reference_ds.time dims {reference_ds.time.shape[0]} != ds.time dims {ds.time.shape[0]}"
-
-    print_time_min = pd.to_datetime(ds.time.min().values)
-    print_time_max = pd.to_datetime(ds.time.max().values)
-    try:
-        vars = [i for i in ds.var().variables]
-    except:
-        vars = ds.name
-    # ref_vars = [i for i in reference_ds.var().variables]
-    print(f"Select same timeslice for ds with vars: {vars}. Min {print_time_min} Max {print_time_max}")
-
-    return ds
-
-
-
-def drop_nans_and_flatten(dataArray):
-    """flatten the array and drop nans from that array. Useful for plotting histograms.
-
-    Arguments:
-    ---------
-    : dataArray (xr.DataArray)
-        the DataArray of your value you want to flatten
-    """
-    # drop NaNs and flatten
-    return dataArray.values[~np.isnan(dataArray.values)]
-
-
-
-def bands_to_time(da, times, var_name="LE_Mean"):
-    """ For a dataArray with each timestep saved as a different band, create
-         a time Coordinate
-    """
-    # get a list of all the bands as dataarray objects (for concatenating later)
-    band_strings = [key for key in da.variables.keys() if 'Band' in key]
-    bands = [da[key] for key in band_strings]
-    bands = [band.rename(var_name) for band in bands]
-
-    # check the number of bands matches n timesteps
-    assert len(times) == len(bands), f"The number of bands should match the number of timesteps. n bands: {len(times)} n times: {len(bands)}"
-    # concatenate into one array
-    timestamped_da = xr.concat(bands, dim=times)
-
-    return timestamped_da
-
-
-def gdal_reproject(infile, outfile, **kwargs):
-    """Use gdalwarp to reproject one file to another
-
-    Help:
-    ----
-    https://www.gdal.org/gdalwarp.html
-    """
-    to_proj4_string = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-    resample_method = 'near'
-
-    # check options
-    valid_resample_methods = ['average','near','bilinear','cubic','cubicspline','lanczos','mode','max','min','med','q1','q3']
-    assert resample_method in valid_resample_methods, f"Resample method not Valid. Must be one of: {valid_resample_methods} Currently: {resample_method}"
-
-    cmd = f'gdalwarp -t_srs "{to_proj4_string}" -of netCDF -r average -dstnodata -9999 -ot Float32 {infile} {outfile}'
-
-    # run command
-    print(f"#### Running command: {cmd} ####")
-    os.system(cmd)
-    print(f"#### Run command {cmd} \n FILE REPROJECTED ####")
-
-    return
-
-
-def get_holaps_mask(ds):
-    """
-    NOTE:
-    - assumes that all of the null values from the HOLAPS file are valid null values (e.g. water bodies). Could also be invalid nulls due to poor data processing / lack of satellite input data for a pixel!
-    """
-    warnings.warn('assumes that all of the null values from the HOLAPS file are valid null values (e.g. water bodies). Could also be invalid nulls due to poor data processing / lack of satellite input data for a pixel!')
-    warnings.warn('How to collapse the time dimension in the holaps mask? Here we just select the first time because all of the valid pixels are constant for first, last second last. Need to check this is true for all timesteps')
-    mask = ds.isnull().isel(time=0).drop('time')
-    mask.name = 'holaps_mask'
-
-    return mask
-
+from preprocessing.utils import *
 
 #%%
 # ------------------------------------------------------------------------------
 # Working with RAW DATA
 # ------------------------------------------------------------------------------
 
-from preprocessing.preprocessing import HolapsCleaner, ModisCleaner, GleamCleaner
-
-h = HolapsCleaner()
-h.preprocess()
-g = GleamCleaner()
-g.preprocess()
-m = ModisCleaner()
-m.preprocess()
-
-# fix the missing vals
-
-
+# from preprocessing.preprocessing import HolapsCleaner, ModisCleaner, GleamCleaner
+from preprocessing.holaps_cleaner import HolapsCleaner
+from preprocessing.gleam_cleaner import GleamCleaner
+from preprocessing.modis_cleaner import ModisCleaner
+#
+# h = HolapsCleaner()
+# h.preprocess()
+# g = GleamCleaner()
+# g.preprocess()
+# m = ModisCleaner()
+# m.preprocess()
+#
 
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 
@@ -182,134 +38,135 @@ df = ds.to_dataframe()
 
 #%%
 # ------------------------------------------------------------------------------
-# Analysis by Elevation: group by elevation
+# Seasonal Patterns
 # ------------------------------------------------------------------------------
 
-topo = xr.open_rasterio('../topography/ETOPO1_Ice_g.tif')
-topo = topo.drop('band')
-topo = topo.sel(band=0)
-topo.name = "elevation"
-# topo = topo.to_dataset()
+seasons = ds.groupby('time.season').mean(dim='time')
 
-def select_east_africa(ds):
-    """ """
-    lonmin=32.6
-    lonmax=51.8
-    latmin=-5.0
-    latmax=15.2
+variables = [
+ 'holaps_evapotranspiration',
+ 'gleam_evapotranspiration',
+ 'modis_evapotranspiration',
+]
 
-    return ds.sel(y=slice(latmax,latmin),x=slice(lonmin, lonmax))
-
-if not os.path.isfile('global_topography.nc'):
-    topo.to_netcdf('global_topography.nc')
-
-topo = select_east_africa(topo)
-topo = topo.rename({'y':'lat','x':'lon'})
-
-if not os.path.isfile('EA_topography.nc'):
-    topo.to_netcdf('EA_topography.nc')
-
-# convert to same grid as the other data (ds_valid)
-topo = convert_to_same_grid(ds_valid, topo, method="bilinear")
-
-# mask the same areas as other data (ds_valid)
-mask = get_holaps_mask(ds_valid.holaps_evapotranspiration)
-topo = topo.where(~mask)
-
-
-
-# ------------------------------------------------------------------------------
-# plot topo histogram
-t = drop_nans_and_flatten(topo)
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
-fig.savefig('figs/topo_histogram.png')
-plt.close()
-
-# plot topo histogram WITH QUINTILES (0,0.2,0.4,0.6,0.8,1.0)
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
-# get the qunitile values
-qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
-# plot vertical lines at the given quintile value
-[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
-fig.savefig('figs/topo_histogram_quintiles.png')
-plt.close()
-
-# ------------------------------------------------------------------------------
-# GROUPBY
-topo.name = 'elevation'
-topo = topo.to_dataset()
-bins = topo.groupby_bins(group='elevation',bins=10)
-intervals = bins.mean().elevation_bins.values
-left_bins = [interval.left for interval in intervals]
-
-# plot to check WHERE the bins are
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-[ax.axvline(bin, ymin=0,ymax=1,color='r',label=f'Bin') for bin in left_bins];
-
-# [bins for bins in
-topo_bins = xr.concat([topo.where(
-                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
-            )
-            for interval in intervals ]
-)
-topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
-
-# repeat for 60 timesteps
-topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
-topo_bins = topo_bins.rename({'concat_dims':'time'})
-topo_bins['time'] = ds_valid.time
-
-# select and plot the values at different elevations
-topo_bins.isel(elevation_bins=0)
-
-#
-# ds_valid.where(topo_bins.isel(elevation_bins=0).elevation.notnull())
-
-def get_unmasked_data(dataArray, dataMask):
-    """ """
-    return dataArray.where(dataMask)
-
-
-    # data = ds_valid.where(
-    #  topo_bins.isel(elevation_bins=i).elevation.notnull()
-    # ).holaps_evapotranspiration.mean(dim='time')
-
-h_col = sns.color_palette()[0]
-m_col = sns.color_palette()[1]
-g_col = sns.color_palette()[2]
-colors = [h_col, m_col, g_col]
 kwargs = {"vmin":0,"vmax":3.5}
-interval_ranges = [(interval.left, interval.right) for interval in intervals]
 
-for i in range(10):
-    scale=1.5
-    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
-    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
+for var in variables:
+    scale=1
+    fig,axs = plt.subplots(2,2,figsize=(12*scale,8*scale))
+    for i in range(4):
+        ax = axs[np.unravel_index(i,(2,2))]
+        seasons[var].isel(season=i).plot(ax=ax, **kwargs)
+        season_str = str(seasons[var].isel(season=i).season.values)
+        ax.set_title(f"{var} {season_str}")
 
-    for j, dataset in enumerate(['holaps','modis','gleam']):
-        dataArray = ds_valid[f'{dataset}_evapotranspiration']
-        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
-        color = colors[j]
-        # get the axes that correspond to the different rows
-        ax_map = axs[0,j]
-        ax_map.set_title(f'{dataset} Evapotranspiration')
-        ax_hist = axs[1,j]
-        ax_hist.set_ylim([0,1.1])
-        ax_hist.set_xlim([0,7])
-        # plot the maps
-        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
-        # plot the histograms
-        d = drop_nans_and_flatten(dataArray)
-        sns.distplot(d, ax=ax_hist,color=color)
+    plt.tight_layout()
+    fig.savefig(f"{var}_season_spatial.png")
 
-    elevation_range = interval_ranges[i]
-    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
-    fig.savefig(f'figs/elevation_bin{i}.png')
+#%%
+# ------------------------------------------------------------------------------
+# Differences
+# ------------------------------------------------------------------------------
+import itertools
+variables = [
+ 'holaps_evapotranspiration',
+ 'gleam_evapotranspiration',
+ 'modis_evapotranspiration',
+]
+comparisons = [i for i in itertools.combinations(variables,2)]
+
+# mean differences (spatial)
+# ----------------
+kwargs = {'vmin':-1.5,'vmax':1.5}
+fig,axs = plt.subplots(1,3, figsize=(15,12))
+
+for i, cmprson in enumerate(comparisons):
+    ax = axs[i]
+    diff = ds[cmprson[0]] - ds[cmprson[1]]
+    if i!=3:
+        diff.mean(dim='time').plot(ax=ax, **kwargs, add_colorbar=False)
+    else:
+        diff.mean(dim='time').plot(ax=ax, **kwargs)
+    ax.set_title(f"{cmprson[0].split('_')[0]} - {cmprson[1].split('_')[0]} Temporal Mean")
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+
+fig.suptitle('Comparison of Spatial Means Between Products')
+fig.savefig(f"product_comparison_spatial_means.png")
+
+# differences by season
+# ---------------------
+seasons = ds.groupby('time.season').mean(dim='time')
+
+kwargs = {'vmin':-1.5,'vmax':1.5}
+fig, axs = plt.subplots(2,6, figsize=(15,12))
+
+# get the axes indexes upfront
+row_s = [0,1]; col_s = [0,1,2,3,4,5];
+axes_ix = [i for i in itertools.product(row_s,col_s)]; axes.sort(key=lambda x: x[1])
+axes_ix = [(0,0),(0,1),(1,0),(1,1),(0,2),(0,3),(1,2),(1,3),(0,4),(0,5),(1,4),(1,5)]
+
+ix_counter = 0
+for i, cmprson in enumerate(comparisons):
+    # for each comparison calculate the SEASONAL difference
+    seas_diff = seasons[cmprson[0]] - seasons[cmprson[1]]
+    if i != 0: ix_counter += 1
+    # select each season from seasonal difference to plot
+    for j in range(4):
+        # get the correct axes index
+        print("i: ",i)
+        print("j: ",j)
+        print(ix_counter)
+        ax_ix = axes_ix[ix_counter]
+        ix_counter += 1
+        print(ax_ix)
+        ax = axs[ax_ix]
+
+        # plot the given seasonal difference in correct axis
+        seas_diff.isel(season=i).plot(ax=ax, add_colorbar=False, **kwargs)
+        season_str = str(seas_diff.isel(season=j).season.values)
+        # if i!=3:
+            # diff.mean(dim='time').plot(ax=ax, **kwargs, add_colorbar=False)
+        # else:
+            # diff.mean(dim='time').plot(ax=ax, **kwargs)
+        ax.set_title(f"{cmprson[0].split('_')[0]} - {cmprson[1].split('_')[0]} {season_str}")
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+
+plt.tight_layout()
+
+#%%
+# ------------------------------------------------------------------------------
+# hexbin of comparisons
+# ------------------------------------------------------------------------------
+
+
+
+var_dataset_x =
+var_dataset_y =
+fig, ax = plt.subplots()
+
+# plot the data
+hb = ax.hexbin(var_dataset_x, var_dataset_y, bins='log',gridsize=40, mincnt=0.5)
+
+# draw the 1:1 line (showing datasets exactly the same)
+ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+
+dataset_name_x = whole_df.columns[0].split("_")[1]
+dataset_name_y = whole_df.columns[1].split("_")[1]
+if whole_df.columns[0].split("_")[0] == 'albedo':
+    variable_name = whole_df.columns[0].split("_")[0].capitalize()
+else:
+    variable_name = whole_df.columns[0].split("_")[0]
+title = variable_name + ": " + dataset_name_x + " vs. " + dataset_name_y
+ax.set_xlabel(dataset_name_x)
+ax.set_ylabel(dataset_name_y)
+ax.set_title(title)
+cb = fig.colorbar(hb, ax=ax)
+cb.set_label('log10(counts)')
+
+
+
 
 #%%
 # ------------------------------------------------------------------------------
@@ -454,15 +311,128 @@ fig3.savefig('figs/gleam_hist1.png')
 
 #%%
 # ------------------------------------------------------------------------------
-# Plot the Time Series of the points (spatial mean)
+# PLOT segmented map AND histograms
 # ------------------------------------------------------------------------------
 
+def get_unmasked_data(dataArray, dataMask):
+    """ """
+    return dataArray.where(dataMask)
+
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+colors = [h_col, m_col, g_col]
+kwargs = {"vmin":0,"vmax":3.5}
+
+for i in range(10):
+    scale=1.5
+    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
+    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
+
+    for j, dataset in enumerate(['holaps','modis','gleam']):
+        dataArray = ds_valid[f'{dataset}_evapotranspiration']
+        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
+        color = colors[j]
+        # get the axes that correspond to the different rows
+        ax_map = axs[0,j]
+        ax_map.set_title(f'{dataset} Evapotranspiration')
+        ax_hist = axs[1,j]
+        ax_hist.set_ylim([0,1.1])
+        ax_hist.set_xlim([0,7])
+        # plot the maps
+        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
+        # plot the histograms
+        d = drop_nans_and_flatten(dataArray)
+        sns.distplot(d, ax=ax_hist,color=color)
+
+    elevation_range = interval_ranges[i]
+    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
+    fig.savefig(f'figs/elevation_bin{i}.png')
+
+
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Plot the bounding Box
+# ------------------------------------------------------------------------------
+# https://stackoverflow.com/questions/12251189/how-to-draw-rectangles-on-a-basemap
+# https://stackoverflow.com/questions/14589600/matplotlib-insets-in-subplots
+#
+
+from mpl_toolkits.basemap import Basemap
+from matplotlib.patches import Polygon
+
+import cartopy
+import cartopy.feature as cpf
+
+
+lonmin=32.6
+lonmax=51.8
+latmin=-5.0
+latmax=15.2
+
+ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+ax.add_feature(cpf.COASTLINE)
+ax.add_feature(cpf.BORDERS, linestyle=':')
+ax.set_extent([lonmin, lonmax, latmin, latmax])
+
+
+from itertools import chain
+
+def draw_map(m, scale=0.2):
+    # draw a shaded-relief image
+    m.shadedrelief(scale=scale)
+
+    # lats and longs are returned as a dictionary
+    lats = m.drawparallels(np.linspace(-90, 90, 13))
+    lons = m.drawmeridians(np.linspace(-180, 180, 13))
+
+    # keys contain the plt.Line2D instances
+    lat_lines = chain(*(tup[1][0] for tup in lats.items()))
+    lon_lines = chain(*(tup[1][0] for tup in lons.items()))
+    all_lines = chain(lat_lines, lon_lines)
+
+    # cycle through these lines and set the desired style
+    for line in all_lines:
+        line.set(linestyle='-', alpha=0.3, color='w')
+
+def plot_bounding_box_map(latmin,latmax,lonmin,lonmax):
+    fig = plt.figure(figsize=(8, 6), edgecolor='w')
+    m = Basemap(projection='cyl', resolution='h',
+                llcrnrlat=latmin, urcrnrlat=latmax,
+                llcrnrlon=lonmin, urcrnrlon=lonmax, )
+    draw_map(m)
+    return fig
+
+plot_bounding_box_map(latmin,latmax,lonmin,lonmax)
+#%%
+# ------------------------------------------------------------------------------
+# Plot the Time Series of the points (spatial mean)
+# ------------------------------------------------------------------------------
+from matplotlib import cm
+from matplotlib.colors import ListedColormap
+
+my_cmap = ListedColormap(sns.color_palette().as_hex())
+
+# GET colors for each variable
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+
+colors = [h_col,g_col,m_col]
+my_cmap = ListedColormap(colors)
 # get table of time series
-tseries = ds.mean(dim=['lat','lon'],skipna=True).to_dataframe().drop(columns='units')
+
+tseries = ds.mean(dim=['lat','lon'],skipna=True).to_dataframe()
 
 fig,ax = plt.subplots(figsize=(12,8))
-ds['time'] = [pd.to_datetime(dt) for dt in ds.time.values]
-ds.mean(dim=['lat','lon']).holaps_evapotranspiration.plot(ax=ax)
+tseries.plot(ax=ax) # ,colormap=my_cmap)
+ax.set_title('Comparing the Spatial Mean Time Series from the ET Products')
+ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
+plt.legend()
+fig.savefig('figs/spatial_mean_timseries.png')
+
 
 #%%
 # ------------------------------------------------------------------------------
@@ -479,8 +449,164 @@ ds.mean(dim=['lat','lon']).holaps_evapotranspiration.plot(ax=ax)
 
 #%%
 # ------------------------------------------------------------------------------
-# Plot the Climatology of different products
+# Plot the Seasonality of different products
 # ------------------------------------------------------------------------------
+
+mthly_mean = ds.groupby('time.month').mean(dim='time')
+seasonality = mthly_mean.mean(dim=['lat','lon'])
+
+fig, ax = plt.subplots(figsize=(12,8))
+seasonality.to_dataframe().plot(ax=ax)
+ax.set_title('Spatial Mean Seasonal Time Series from the ET Products')
+ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
+plt.legend()
+fig.savefig('figs/spatial_mean_seasonality.png')
+
+# ------------------------------------------------------------------------------
+# Plot the NORMALISED Seasonality (% of the total)
+# ------------------------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(12,8))
+norm_seasonality = seasonality.apply(lambda x: (x / x.sum(dim='month'))*100)
+norm_seasonality.to_dataframe().plot(ax=ax)
+ax.set_title('Normalised Seasonality of Data Products')
+ax.set_ylabel('Contribution of that month ET to total ET (%)')
+plt.legend()
+fig.savefig('figs/spatial_mean_seasonality_normed.png')
+
+
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Analysis by Elevation: group by elevation
+# ------------------------------------------------------------------------------
+
+topo = xr.open_rasterio('../topography/ETOPO1_Ice_g.tif')
+topo = topo.drop('band')
+topo = topo.sel(band=0)
+topo.name = "elevation"
+# topo = topo.to_dataset()
+
+def select_east_africa(ds):
+    """ """
+    lonmin=32.6
+    lonmax=51.8
+    latmin=-5.0
+    latmax=15.2
+
+    return ds.sel(y=slice(latmax,latmin),x=slice(lonmin, lonmax))
+
+if not os.path.isfile('global_topography.nc'):
+    topo.to_netcdf('global_topography.nc')
+
+topo = select_east_africa(topo)
+topo = topo.rename({'y':'lat','x':'lon'})
+
+if not os.path.isfile('EA_topography.nc'):
+    topo.to_netcdf('EA_topography.nc')
+
+# convert to same grid as the other data (ds_valid)
+topo = convert_to_same_grid(ds_valid, topo, method="bilinear")
+
+# mask the same areas as other data (ds_valid)
+mask = get_holaps_mask(ds_valid.holaps_evapotranspiration)
+topo = topo.where(~mask)
+
+
+
+# ------------------------------------------------------------------------------
+# plot topo histogram
+t = drop_nans_and_flatten(topo)
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
+fig.savefig('figs/topo_histogram.png')
+plt.close()
+
+# plot topo histogram WITH QUINTILES (0,0.2,0.4,0.6,0.8,1.0)
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
+# get the qunitile values
+qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
+# plot vertical lines at the given quintile value
+[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
+fig.savefig('figs/topo_histogram_quintiles.png')
+plt.close()
+
+# ------------------------------------------------------------------------------
+# GROUPBY
+topo.name = 'elevation'
+topo = topo.to_dataset()
+bins = topo.groupby_bins(group='elevation',bins=10)
+intervals = bins.mean().elevation_bins.values
+left_bins = [interval.left for interval in intervals]
+
+# plot to check WHERE the bins are
+fig, ax = plt.subplots(figsize=(12,8))
+sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
+[ax.axvline(bin, ymin=0,ymax=1,color='r',label=f'Bin') for bin in left_bins];
+
+# [bins for bins in
+topo_bins = xr.concat([topo.where(
+                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
+            )
+            for interval in intervals ]
+)
+topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
+
+# repeat for 60 timesteps
+topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+topo_bins = topo_bins.rename({'concat_dims':'time'})
+topo_bins['time'] = ds_valid.time
+
+# select and plot the values at different elevations
+topo_bins.isel(elevation_bins=0)
+
+#
+# ds_valid.where(topo_bins.isel(elevation_bins=0).elevation.notnull())
+
+def get_unmasked_data(dataArray, dataMask):
+    """ """
+    return dataArray.where(dataMask)
+
+
+    # data = ds_valid.where(
+    #  topo_bins.isel(elevation_bins=i).elevation.notnull()
+    # ).holaps_evapotranspiration.mean(dim='time')
+
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+colors = [h_col, m_col, g_col]
+kwargs = {"vmin":0,"vmax":3.5}
+interval_ranges = [(interval.left, interval.right) for interval in intervals]
+
+for i in range(10):
+    scale=1.5
+    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
+    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
+
+    for j, dataset in enumerate(['holaps','modis','gleam']):
+        dataArray = ds_valid[f'{dataset}_evapotranspiration']
+        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
+        color = colors[j]
+        # get the axes that correspond to the different rows
+        ax_map = axs[0,j]
+        ax_map.set_title(f'{dataset} Evapotranspiration')
+        ax_hist = axs[1,j]
+        ax_hist.set_ylim([0,1.1])
+        ax_hist.set_xlim([0,7])
+        # plot the maps
+        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
+        # plot the histograms
+        d = drop_nans_and_flatten(dataArray)
+        sns.distplot(d, ax=ax_hist,color=color)
+
+    elevation_range = interval_ranges[i]
+    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
+    fig.savefig(f'figs/elevation_bin{i}.png')
 
 
 #

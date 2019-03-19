@@ -231,3 +231,16 @@ def get_all_valid(ds, holaps_da, modis_da, gleam_da):
     ds_valid = ds.where(valid_mask)
 
     return ds_valid
+
+def drop_nans_and_flatten(dataArray):
+    """flatten the array and drop nans from that array. Useful for plotting histograms.
+
+    Arguments:
+    ---------
+    : dataArray (xr.DataArray)
+        the DataArray of your value you want to flatten
+    """
+    # drop NaNs and flatten
+    return dataArray.values[~np.isnan(dataArray.values)]
+
+#
