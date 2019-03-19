@@ -163,137 +163,16 @@ def get_holaps_mask(ds):
 # Working with RAW DATA
 # ------------------------------------------------------------------------------
 
-# HOLAPS
-# ------
-# assert False, "\n\n #### You need to ask Jian to run your reprojection code BEFORE he subsets the data #### \n\n"
-data_dir="holaps_africa.nc"
-holaps = xr.open_dataset(data_dir).LE_Mean
-# RESAMPLE to the end of the month
-holaps = holaps.resample(time='M').first()
+from preprocessing.preprocessing import HolapsCleaner, ModisCleaner, GleamCleaner
 
-# Convert from latent heat (w m-2) to evaporation (mm day-1)
-holaps_mm = holaps / 28
-holaps_mm.name = 'Evapotranspiration'
-holaps_mm['units'] = "mm day-1 [w m-2 / 28]"
+h = HolapsCleaner()
+h.preprocess()
+g = GleamCleaner()
+g.preprocess()
+m = ModisCleaner()
+m.preprocess()
 
-# READ HOLAPS REPROJECTED
-# ----------------------
-# reproject if necessary
-outfile="holaps_africa_test.nc"
-if not os.path.isfile(outfile):
-    # cmd = 'gdalwarp -t_srs "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" -of netCDF -r average -dstnodata -9999 -ot Float32 holaps_africa.nc holaps_africa_test.nc'
-    # print(f"#### Running command: {cmd} ####")
-    # os.system(cmd)
-    # print(f"#### Run command {cmd} \n FILE REPROJECTED ####")
-
-    # functional form
-    gdal_reproject(infile="holaps_africa.nc", outfile=outfile)
-
-# read the data
-# data_dir="holaps_africa_test.nc"
-# holaps_repr = xr.open_dataset(data_dir)
-
-data_dir="holaps_east_africa.nc"
-holaps_repr = xr.open_dataset(data_dir)
-
-# turn the multiple bands into timesteps
-# get the ORIGINAL timestamps from the non-reprojected data
-h_times = holaps.time
-holaps_repr = bands_to_time(holaps_repr, h_times, var_name="LE_Mean")
-# ------------------------------------------------------------------------------
-warnings.warn('TODO: No idea why but the values appear to be 10* bigger than the pre-reprojected holaps data')
-holaps_repr /= 10 # WHY ARE THE VALUES 10* bigger?
-# ------------------------------------------------------------------------------
-
-# convert to mm day-1
-holaps_repr /= 28
-holaps_repr.name = 'Evapotranspiration'
-holaps_repr.attrs['units'] = "mm day-1 [w m-2 / 28]"
-
-# holaps_repr = holaps_repr.resample(time='M').first()
-# # Convert from latent heat (w m-2) to evaporation (mm day-1)
-# holaps_repr = holaps_repr / 28
-# holaps_repr['units'] = "mm day-1 [w m-2 / 28]"
-
-# GLEAM
-# -----
-data_dir="EA_GLEAM_evap_transp_2001_2015.nc"
-gleam = xr.open_dataset(data_dir).evaporation
-# resample to monthly & select same time range as
-gleam = gleam.resample(time='M').mean(dim='time')
-gleam = select_same_time_slice(holaps, gleam)
-gleam.attrs['units'] = "mm day-1"
-# REGRID onto same grid as HOLAPS
-gleam = convert_to_same_grid(holaps_repr, gleam, method="nearest_s2d")
-
-# MODIS
-# -----
-data_dir="EA_evaporation_modis.nc"
-modis = xr.open_dataset(data_dir).monthly_ET
-modis = modis.resample(time='M').first()
-modis = select_same_time_slice(holaps,modis)
-# mask out the negative values (missing values)
-modis = modis.where(modis >=0)
-
-# transpose because longitude/latitude => latitude/longitude for plotting
-# modis = modis.T
-
-# SWAP the order of the dimensions
-#   longitude/latitude => latitude/longitude
-m = xr.DataArray(np.swapaxes(modis.data, -2,-1),
-    dims=('time','latitude','longitude')
-    )
-m['time'] = modis.time
-m['latitude'] = modis.latitude
-m['longitude'] = modis.longitude
-modis = m
-
-# convert from monthly (mm month-1) to daily (mm day-1)
-modis = modis / 30.417
-
-# REGRID onto same grid as HOLAPS
-modis = modis.rename({'longitude':'lon','latitude':'lat'})
-modis = convert_to_same_grid(holaps_repr, modis, method="nearest_s2d")
-
-# reassign the units to the modis DataArray object
-modis.attrs['units'] ='mm day-1 [mm/month / 30.417]'
-
-#%%
-# ------------------------------------------------------------------------------
-# Get the HOLAPS mask and apply it to all other datasets
-# ------------------------------------------------------------------------------
-mask  = get_holaps_mask(holaps_repr)
-mask = xr.concat([mask for _ in range(len(holaps.time))])
-mask = mask.rename({'concat_dims':'time'})
-mask['time'] = holaps.time
-
-# mask the other datasets
-gleam_msk = gleam.where(~mask)
-gleam_msk.attrs['units'] = "mm day-1"
-modis_msk = modis.where(~mask)
-
-#%%
-# ------------------------------------------------------------------------------
-# Merge into one big xr.Dataset
-# ------------------------------------------------------------------------------
-gleam_msk = gleam_msk.rename('gleam_evapotranspiration')
-modis_msk = modis_msk.rename('modis_evapotranspiration')
-holaps_repr = holaps_repr.rename('holaps_evapotranspiration')
-ds = xr.merge([holaps_repr,gleam_msk,modis_msk])
-
-# if the .nc file doesnt exist then save it
-if not os.path.isfile('all_vars_ds.nc'):
-    ds.to_netcdf('all_vars_ds.nc')
-else:
-    ds = xr.open_dataset('all_vars_ds.nc')
-
-# Get the values where ALL DATASETS are not null
-valid_mask = (
-    ds.holaps_evapotranspiration.notnull()
-    & ds.modis_evapotranspiration.notnull()
-    & ds.gleam_evapotranspiration.notnull()
-)
-ds_valid = ds.where(valid_mask)
+ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 
 #%%
 # ------------------------------------------------------------------------------
