@@ -296,7 +296,7 @@ class ModisCleaner(Cleaner):
         update_clean_data(rename_latlon, msg="Renamed latitude,longitude => lat,lon")
         return
 
-    def preprocessing(self):
+    def preprocess(self):
         # Resample the timesteps to END OF MONTH
         self.resample_time(resample_str="M")
         # select the correct time slice
@@ -349,7 +349,7 @@ class GleamCleaner(Cleaner):
         # convert unit label to 'mm day-1'
         self.clean_data.attrs["units"] = "mm day-1"
 
-    def preprocessing(self):
+    def preprocess(self):
         # Resample the timesteps to END OF MONTH
         self.resample_time(resample_str="M")
         # select the correct time slice
