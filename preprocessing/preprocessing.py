@@ -215,7 +215,7 @@ class HolapsCleaner(Cleaner):
         save_netcdf(
             self.clean_data, filepath=self.base_data_path / "holaps_EA_clean.nc"
         )
-        # ipdb.set_trace()
+        print("\n\n HOLAPS Preprocessed \n\n")
         return
 
 
@@ -314,6 +314,7 @@ class ModisCleaner(Cleaner):
         save_netcdf(
             self.clean_data, filepath=self.base_data_path / "modis_EA_clean.nc"
         )
+        print("\n\n MODIS Preprocessed \n\n")
         return
 
 
@@ -366,6 +367,7 @@ class GleamCleaner(Cleaner):
         save_netcdf(
             self.clean_data, filepath=self.base_data_path / "gleam_EA_clean.nc"
         )
+        print("\n\n GLEAM Preprocessed \n\n")
         return
 
 
