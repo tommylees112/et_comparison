@@ -5,6 +5,7 @@ import pandas as pd
 import xesmf as xe  # for regridding
 import ipdb
 import warnings
+import datetime
 
 # ------------------------------------------------------------------------------
 # Functions for reprojecting using GDAL and reading resulting .nc file back
@@ -148,8 +149,9 @@ def select_same_time_slice(reference_ds, ds):
     new_max = new_time_range.max()
 
     # select using the NEW MAX as upper limit
-    # FOR SOME REASON slice is removing the minimum time ...
     # --------------------------------------------------------------------------
+    # FOR SOME REASON slice is removing the minimum time ...
+    # something to do with the fact that matplotlib / xarray is working oddly with numpy64datetime object
     warnings.warn("L153: HARDCODING THE MIN VALUE OTHERWISE IGNORED ...")
     min_time = datetime.datetime(2001, 1, 31)
     # --------------------------------------------------------------------------
