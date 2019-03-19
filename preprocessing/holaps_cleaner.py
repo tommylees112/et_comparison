@@ -105,6 +105,8 @@ class HolapsCleaner(Cleaner):
         self.convert_units()
         # rename data
         self.rename_xr_object("holaps_evapotranspiration")
+        # resample the time units
+        self.resample_time()
         # save the netcdf file (used as reference data for MODIS and GLEAM)
         save_netcdf(
             self.clean_data, filepath=self.base_data_path / "holaps_EA_clean.nc",
