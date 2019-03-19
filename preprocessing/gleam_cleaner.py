@@ -56,6 +56,7 @@ class GleamCleaner(Cleaner):
         # Resample the timesteps to END OF MONTH
         self.resample_time(resample_str="M")
         # select the correct time slice
+        ipdb.set_trace()
         self.correct_time_slice()
         # update the units
         self.convert_units()
