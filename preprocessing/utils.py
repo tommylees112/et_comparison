@@ -3,7 +3,7 @@ from pathlib import Path
 import xarray as xr
 import pandas as pd
 import xesmf as xe  # for regridding
-
+import ipdb
 import warnings
 
 # ------------------------------------------------------------------------------
@@ -148,6 +148,7 @@ def select_same_time_slice(reference_ds, ds):
 
     # select using the NEW MAX as upper limit
     # FOR SOME REASON slice is removing the minimum time ...
+    ipdb.set_trace()
     ds = ds.sel(time=slice(min_time, new_max))
     assert reference_ds.time.shape[0] == ds.time.shape[0],"The time dimensions should match, currently reference_ds.time dims {reference_ds.time.shape[0]} != ds.time dims {ds.time.shape[0]}"
 
