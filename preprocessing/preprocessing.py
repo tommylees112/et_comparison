@@ -310,6 +310,10 @@ class ModisCleaner(Cleaner):
         self.use_reference_mask()
         # rename data
         self.rename_xr_object("modis_evapotranspiration")
+        # save data
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "modis_EA_clean.nc"
+        )
         return
 
 
@@ -358,6 +362,10 @@ class GleamCleaner(Cleaner):
         self.use_reference_mask()
         # rename data
         self.rename_xr_object("gleam_evapotranspiration")
+        # save data
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "gleam_EA_clean.nc"
+        )
         return
 
 
