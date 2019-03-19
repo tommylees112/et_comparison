@@ -2,6 +2,21 @@ from holaps_cleaner import HolapsCleaner
 from modis_cleaner import ModisCleaner
 from gleam_cleaner import GleamCleaner
 
+
+if __name__ == "__main__":
+    h = HolapsCleaner()
+    h.preprocess()
+    g = GleamCleaner()
+    g.preprocess()
+    m = ModisCleaner()
+    m.preprocess()
+
+    # merge the preprocessed data and save to netcdf
+    ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
+    save_netcdf(ds, output_ds_path, force=False)
+
+
+
 # def convert_to_same_grid(self, method="nearest_s2d"):
 #     """ Use xEMSF package to regrid ds to the same grid as self.reference_ds """
 #     assert ("lat" in self.reference_ds.dims)&("lon" in self.reference_ds.dims), f"Need (lat,lon) in self.reference_ds dims Currently: {self.reference_ds.dims}"
