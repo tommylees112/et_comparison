@@ -163,7 +163,7 @@ def save_netcdf(xr_obj, filepath, force=False):
     if not Path(filepath).is_file():
         xr_obj.to_netcdf(filepath)
         print(f"File Saved: {filepath}")
-    elif Force:
+    elif force:
         print(f"Filepath {filepath} already exists! Overwriting...")
         xr_obj.to_netcdf(filepath)
         print(f"File Saved: {filepath}")
