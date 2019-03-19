@@ -143,7 +143,7 @@ def select_same_time_slice(reference_ds, ds):
     orig_time_range = pd.date_range(min_time, max_time, freq=freq)
     # EXTEND the original time_range by 1 (so selecting the whole slice)
     # because python doesn't select the final in a range
-    periods = len(orig_time_range) + 1
+    periods = len(orig_time_range) #+ 1
     # create new time series going ONE EXTRA PERIOD
     new_time_range = pd.date_range(min_time, freq=freq, periods=periods)
     new_max = new_time_range.max()
