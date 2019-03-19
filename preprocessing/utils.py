@@ -185,7 +185,7 @@ def get_holaps_mask(ds):
 
 
 def merge_data_arrays(*DataArrays):
-    das = [da for da in DataArrays]
+    das = [da.name for da in DataArrays]
     print(f"Merging data: {das}")
     ds = xr.merge([*DataArrays])
     return ds
