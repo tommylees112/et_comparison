@@ -96,6 +96,7 @@ class Cleaner:
         return
 
     def use_reference_mask(self):
+        assert not 'units' in self.mask.coords, "MUST NOT HAVE EXTRA COORDS or you remove ALL values. self.mask has 'units' coord and needs to be dropped:\n self.mask = self.mask.drop('units')"
         assert (
             self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"

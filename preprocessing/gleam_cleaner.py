@@ -44,6 +44,7 @@ class GleamCleaner(Cleaner):
 
         # make the mask (FROM REFERENCE_DS) to copy to this dataset too
         self.get_mask()
+        # self.mask = self.mask.drop('units')
 
     def get_mask(self):
         self.mask = get_holaps_mask(self.reference_ds)

@@ -39,6 +39,7 @@ class ModisCleaner(Cleaner):
             self.raw_data.monthly_ET, msg="Extract monthly_ET from MODIS xr.Dataset"
         )
         self.get_mask()
+        # self.mask = self.mask.drop('units')
 
     def get_mask(self):
         self.mask = get_holaps_mask(self.reference_ds)
