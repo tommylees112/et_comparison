@@ -10,7 +10,7 @@ import warnings
 import os
 
 %matplotlib
-
+%load_ext autoreload
 
 def convert_to_same_grid(reference_ds, ds, method="nearest_s2d"):
     """ Use xEMSF package to regrid ds to the same grid as reference_ds """
