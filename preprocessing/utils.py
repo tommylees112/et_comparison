@@ -127,13 +127,45 @@ def select_same_time_slice(reference_ds, ds):
 
     return ds
 
-# ------------------------------------------------------------------------------
-# Functions for working with .nc files
-# ------------------------------------------------------------------------------
+
+def get_holaps_mask(ds):
+    """
+    NOTE:
+    - assumes that all of the null values from the HOLAPS file are valid null values (e.g. water bodies). Could also be invalid nulls due to poor data processing / lack of satellite input data for a pixel!
+    """
+    warnings.warn('assumes that all of the null values from the HOLAPS file are valid null values (e.g. water bodies). Could also be invalid nulls due to poor data processing / lack of satellite input data for a pixel!')
+    warnings.warn('How to collapse the time dimension in the holaps mask? Here we just select the first time because all of the valid pixels are constant for first, last second last. Need to check this is true for all timesteps')
+
+    mask = ds.isnull().isel(time=0).drop('time')
+    mask.name = 'holaps_mask'
+
+    mask = xr.concat([mask for _ in range(len(ds.time))])
+    mask = mask.rename({'concat_dims':'time'})
+    mask['time'] = ds.time
+
+    return mask
 
 
-def save_netcdf(xr_obj, filepath):
+# ------------------------------------------------------------------------------
+# Functions for working with xarray objects
+# ------------------------------------------------------------------------------
+
+def merge_data_arrays(*DataArrays):
+    print(f"Merging data: {[da for da in *DataArrays]}")
+    ds = xr.merge([*DataArrays])
+    return ds
+
+
+def save_netcdf(xr_obj, filepath, force=False):
     """"""
-    xr_obj.to_netcdf(filepath)
-    print(f"File Saved: {filepath}")
+    if not Path(filepath).isfile():
+        xr_obj.to_netcdf(filepath)
+        print(f"File Saved: {filepath}")
+    elif Force:
+        print(f"Filepath {filepath} already exists! Overwriting...")
+        xr_obj.to_netcdf(filepath)
+        print(f"File Saved: {filepath}")
+    else:
+        print(f"Filepath {filepath} already exists!")
+
     return
