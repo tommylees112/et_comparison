@@ -195,7 +195,7 @@ class HolapsCleaner(Cleaner):
         return
 
 
-    def preprocess():
+    def preprocess(self):
         # reproject the file from sinusoidal to WGS84
         self.reproject()
         # chop out the correct lat/lon (changes when reprojected)
