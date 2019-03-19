@@ -16,7 +16,7 @@ from .utils import (
     merge_data_arrays,
 )
 
-from cleaner import Cleaner
+from .cleaner import Cleaner
 
 
 # ------------------------------------------------------------------------------
