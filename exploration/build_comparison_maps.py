@@ -142,8 +142,8 @@ plt.tight_layout()
 
 
 
-var_dataset_x =
-var_dataset_y =
+# var_dataset_x =
+# var_dataset_y =
 fig, ax = plt.subplots()
 
 # plot the data
