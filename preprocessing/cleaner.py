@@ -103,8 +103,7 @@ class Cleaner:
         assert (
             self.mask is not None
         ), "self.mask does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
-        import ipdb; ipdb.set_trace()
-        masked_d = self.clean_data.where(~self.mask)
+        masked_d = self.clean_data.where(~self.mask.values)
         self.update_clean_data(masked_d, msg="Copied the mask from HOLAPS to GLEAM")
         return
 
