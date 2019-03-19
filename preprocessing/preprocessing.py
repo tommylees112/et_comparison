@@ -165,7 +165,7 @@ class HolapsCleaner(Cleaner):
     def reproject(self):
         """ reproject to WGS84 / geographic latlon """
         if not self.reproject_path.is_file():
-            gdal_reproject(infile=self.clean_data, outfile=self.reproject_path)
+            gdal_reproject(infile=self.data_path, outfile=self.reproject_path)
 
         repr_data = xr.open_dataset(self.reproject_path)
 

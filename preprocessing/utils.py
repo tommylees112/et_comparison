@@ -23,9 +23,9 @@ def gdal_reproject(infile, outfile, **kwargs):
     cmd = f'gdalwarp -t_srs "{to_proj4_string}" -of netCDF -r average -dstnodata -9999 -ot Float32 {infile} {outfile}'
 
     # run command
-    print(f"#### Running command: {cmd} ####")
+    print(f"\n\n#### Running command: {cmd} ####\n\n")
     os.system(cmd)
-    print(f"#### Run command {cmd} \n FILE REPROJECTED ####")
+    print(f"\n\n#### Run command {cmd} \n FILE REPROJECTED ####\n\n")
 
     return
 
