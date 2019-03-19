@@ -107,7 +107,8 @@ class HolapsCleaner(Cleaner):
         self.rename_xr_object("holaps_evapotranspiration")
         # save the netcdf file (used as reference data for MODIS and GLEAM)
         save_netcdf(
-            self.clean_data, filepath=self.base_data_path / "holaps_EA_clean.nc"
+            self.clean_data, filepath=self.base_data_path / "holaps_EA_clean.nc",
+            force=True
         )
         print("\n\n HOLAPS Preprocessed \n\n")
         return
