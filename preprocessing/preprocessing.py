@@ -256,7 +256,7 @@ class ModisCleaner(Cleaner):
 
     def mask_illegitimate_values(self):
         # mask out the negative values (missing values)
-        masked_vals = self.clean_data.where(modis >= 0)
+        masked_vals = self.clean_data.where(self.clean_data >= 0)
         self.update_clean_data(
             masked_vals, msg="Masked out the ET values LESS THAN 0 mm day-1"
         )
@@ -268,9 +268,9 @@ class ModisCleaner(Cleaner):
             np.swapaxes(self.clean_data.data, -2, -1),
             dims=("time", "latitude", "longitude"),
         )
-        m["time"] = modis.time
-        m["latitude"] = modis.latitude
-        m["longitude"] = modis.longitude
+        m["time"] = self.clean_data.time
+        m["latitude"] = self.clean_data.latitude
+        m["longitude"] = self.clean_data.longitude
         self.update_clean_data(
             m, "Swapped the dimensions: longitude/latitude => latitude/longitude"
         )
