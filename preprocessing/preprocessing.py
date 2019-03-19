@@ -146,6 +146,7 @@ class HolapsCleaner(Cleaner):
         super(HolapsCleaner, self).__init__(data_path=data_path)
         self.reproject_path = Path(reproject_path)
 
+
     def chop_EA_region(self):
         """ cheeky little bit of bash scripting with string interpolation (kids don't try this at home) """
         in_file = self.base_data_path / "holaps_reprojected.nc"
@@ -244,7 +245,7 @@ class ModisCleaner(Cleaner):
         )
         self.get_mask()
 
-    def get_mask():
+    def get_mask(self):
         self.mask = get_holaps_mask(self.reference_ds)
 
     def modis_to_holaps_grid(self):
@@ -341,7 +342,7 @@ class GleamCleaner(Cleaner):
         # make the mask (FROM REFERENCE_DS) to copy to this dataset too
         self.get_mask()
 
-    def get_mask():
+    def get_mask(self):
         self.mask = get_holaps_mask(self.reference_ds)
 
     def convert_units(self):
