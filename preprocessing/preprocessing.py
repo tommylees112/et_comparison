@@ -1,7 +1,8 @@
 from holaps_cleaner import HolapsCleaner
 from modis_cleaner import ModisCleaner
 from gleam_cleaner import GleamCleaner
-from utils import merge_data_arrays, save_netcdf
+from utils import merge_data_arrays, save_netcdf, get_all_valid
+
 
 if __name__ == "__main__":
     h = HolapsCleaner()
@@ -13,8 +14,10 @@ if __name__ == "__main__":
 
     # merge the preprocessed data and save to netcdf
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
+    ds = get_all_valid(ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration)
+
     output_ds_path='/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc'
-    save_netcdf(ds, output_ds_path, force=False)
+    save_netcdf(ds, output_ds_path, force=True)
 
 
 
