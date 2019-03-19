@@ -100,7 +100,7 @@ class Cleaner:
             self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
         assert (
-            self.mask
+            self.mask is not None
         ), "self.mask does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
 
         masked_d = self.clean_data.where(~self.mask)
