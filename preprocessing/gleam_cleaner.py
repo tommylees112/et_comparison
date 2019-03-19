@@ -60,6 +60,7 @@ class GleamCleaner(Cleaner):
         self.convert_units()
         # regrid to same as reference data (holaps)
         self.regrid_to_reference()
+        ipdb.set_trace()
         # use the same mask as HOLAPS
         self.use_reference_mask()
         # rename data
