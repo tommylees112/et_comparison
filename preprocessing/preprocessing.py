@@ -398,8 +398,9 @@ class GleamCleaner(Cleaner):
 #     return repr_data
 
 h = HolapsCleaner()
-# g = GleamCleaner()
-# m = ModisCleaner()
+h.preprocessing()
+g = GleamCleaner()
+m = ModisCleaner()
 
 # ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
 # save_netcdf(ds, "/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc", force=False)
