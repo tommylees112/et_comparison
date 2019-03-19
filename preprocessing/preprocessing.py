@@ -192,9 +192,11 @@ class HolapsCleaner(Cleaner):
         )
         return
 
+
     def convert_units(self):
         # Convert from latent heat (w m-2) to evaporation (mm day-1)
         holaps_mm = self.clean_data / 28
+        holaps_mm = holaps_mm.LE_Mean
         holaps_mm.name = "Evapotranspiration"
         holaps_mm["units"] = "mm day-1 [w m-2 / 28]"
         self.update_clean_data(
