@@ -125,6 +125,11 @@ class Cleaner:
         self.update_clean_data(renamed_data, msg=f"Data renamed {name}")
         return
 
+    def rename_lat_lon(self):
+        rename_latlon = self.clean_data.rename({"longitude": "lon", "latitude": "lat"})
+        self.update_clean_data(rename_latlon, msg="Renamed latitude,longitude => lat,lon")
+        return
+
     def preprocess(self):
         """ The preprocessing steps (relatively unique for each dtype) """
         raise NotImplementedError

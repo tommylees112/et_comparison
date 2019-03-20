@@ -46,6 +46,7 @@ class ChirpsCleaner(Cleaner):
         self.get_mask()
         # self.mask = self.mask.drop('units')
 
+
     def convert_units(self):
         daily_mm = self.clean_data / 30.417
         self.update_clean_data(daily_mm, msg="Change the mm month-1 values to mm day-1")
@@ -58,6 +59,8 @@ class ChirpsCleaner(Cleaner):
         self.correct_time_slice()
         # update the units
         self.convert_units()
+        # latitude,longitude => lat,lon
+        self.rename_lat_lon()
         # regrid to same as reference data (holaps)
         self.regrid_to_reference(method="bilinear")
         # ipdb.set_trace()
