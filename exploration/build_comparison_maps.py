@@ -5,7 +5,10 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import xesmf as xe # for regridding
+from scipy.stats import pearsonr
 
+
+import itertools
 import warnings
 import os
 
@@ -139,34 +142,64 @@ plt.tight_layout()
 # ------------------------------------------------------------------------------
 # hexbin of comparisons
 # ------------------------------------------------------------------------------
+from scipy.stats import pearsonr
 
+nonan_m = drop_nans_and_flatten(m)
 
+da1 = h
+da2 = g
 
-# var_dataset_x =
-# var_dataset_y =
-fig, ax = plt.subplots()
+def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5):
+    """
+    Arguments:
+    ---------
+    : bins (str, int, list, None)
+        The binning of the colors for the histogram.
+        Can be 'log', None, an integer for dividing into number of bins.
+        If a list then used to define the lower bound of the bins to be used
+    : mincnt (int, float)
+        The minimum count for a color to be shown
+    """
+    data_array1 = drop_nans_and_flatten(da1)
+    data_array2 = drop_nans_and_flatten(da2)
 
-# plot the data
-hb = ax.hexbin(var_dataset_x, var_dataset_y, bins='log',gridsize=40, mincnt=0.5)
+    var_dataset_x = data_array1
+    var_dataset_y = data_array2
+    r_value = pearsonr(data_array1,data_array2)
 
-# draw the 1:1 line (showing datasets exactly the same)
-ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+    fig, ax = plt.subplots(figsize=(12,8))
 
-dataset_name_x = whole_df.columns[0].split("_")[1]
-dataset_name_y = whole_df.columns[1].split("_")[1]
-if whole_df.columns[0].split("_")[0] == 'albedo':
-    variable_name = whole_df.columns[0].split("_")[0].capitalize()
-else:
-    variable_name = whole_df.columns[0].split("_")[0]
-title = variable_name + ": " + dataset_name_x + " vs. " + dataset_name_y
-ax.set_xlabel(dataset_name_x)
-ax.set_ylabel(dataset_name_y)
-ax.set_title(title)
-cb = fig.colorbar(hb, ax=ax)
-cb.set_label('log10(counts)')
+    # plot the data
+    hb = ax.hexbin(var_dataset_x, var_dataset_y, bins=bins, gridsize=40, mincnt=mincnt)
 
+    # draw the 1:1 line (showing datasets exactly the same)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
 
+    # axes options
+    dataset_name_x = da1.name.split('_')[0]
+    dataset_name_y = da2.name.split('_')[0]
+    title = "Evapotranspiration" + ": " + dataset_name_x + " vs. " + dataset_name_y + "\n" + "Pearsons R: " + "%.2f" % r_value[0]
+    ax.set_xlabel(dataset_name_x)
+    ax.set_ylabel(dataset_name_y)
+    ax.set_title(title)
 
+    # colorbar
+    cb = fig.colorbar(hb, ax=ax)
+    if bins == 'log':
+        cb.set_label('log10(counts)')
+    else:
+        cb.set_label('counts')
+
+    #
+    fig.savefig(f'figs/{dataset_name_x}_v_{dataset_name_y}{bins}_{mincnt}_hexbin.png')
+
+plot_hexbin_comparisons(h, g, 'log')
+plot_hexbin_comparisons(h, m, 'log')
+plot_hexbin_comparisons(g, m, 'log')
+
+plot_hexbin_comparisons(h, g, mincnt=100, bins='log')
+plot_hexbin_comparisons(h, m, mincnt=5)
+plot_hexbin_comparisons(g, m, mincnt=5)
 
 #%%
 # ------------------------------------------------------------------------------
@@ -360,24 +393,121 @@ for i in range(10):
 # https://stackoverflow.com/questions/14589600/matplotlib-insets-in-subplots
 #
 
-from mpl_toolkits.basemap import Basemap
-from matplotlib.patches import Polygon
-
 import cartopy
 import cartopy.feature as cpf
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+import cartopy.io.img_tiles as cimgt
+
+import matplotlib.patches as mpatches
+from shapely.geometry.polygon import LinearRing
 
 
-lonmin=32.6
-lonmax=51.8
-latmin=-5.0
-latmax=15.2
+# whole
+region = dict(lonmin=32.6,
+    lonmax=51.8,
+    latmin=-5.0,
+    latmax=15.2,
+)
+def plot_geog_location(lonmin,lonmax,latmin,latmax):
+    """ use cartopy to plot """
+    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+    ax.add_feature(cpf.COASTLINE)
+    ax.add_feature(cpf.BORDERS, linestyle=':')
+    ax.add_feature(cpf.LAKES)
+    ax.set_extent([lonmin, lonmax, latmin, latmax])
+
+    # plot the lat lon labels
+    # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
+    # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
+    xticks = np.linspace(lonmin, lonmax, 5)
+    yticks = np.linspace(latmin, latmax, 5)
+
+    ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
+    ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
+    lon_formatter = LongitudeFormatter(zero_direction_label=True)
+    lat_formatter = LatitudeFormatter()
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+
+    fig = plt.gcf()
+
+    return fig
+
+
+def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
+    """
+    Note:
+    ----
+    order is important:
+        lower-left, upper-left, upper-right, lower-right
+        2 -- 3
+        |    |
+        1 -- 4
+    """
+    # ax = fig.axes[0]
+    lons = [latmin, latmin, latmax, latmax]
+    lats = [lonmin, lonmax, lonmax, lonmin]
+    ring = LinearRing(list(zip(lons, lats)))
+    ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
+
+
+    return fig
 
 ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
 ax.add_feature(cpf.COASTLINE)
 ax.add_feature(cpf.BORDERS, linestyle=':')
+ax.add_feature(cpf.LAKES)
 ax.set_extent([lonmin, lonmax, latmin, latmax])
+# plot the lat lon labels
+# https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
+# https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
+xticks = np.linspace(lonmin, lonmax, 5)
+yticks = np.linspace(latmin, latmax, 5)
+ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
+ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
+lon_formatter = LongitudeFormatter(zero_direction_label=True)
+lat_formatter = LatitudeFormatter()
+ax.xaxis.set_major_formatter(lon_formatter)
+ax.yaxis.set_major_formatter(lat_formatter)
+
+lons = [lake_vict_region['latmin'], lake_vict_region['latmin'], lake_vict_region['latmax'], lake_vict_region['latmax']]
+lats = [lake_vict_region['lonmin'], lake_vict_region['lonmax'], lake_vict_region['lonmax'], lake_vict_region['lonmin']]
+ax.fill(lons, lats, color='coral', transform=cartopy.crs.PlateCarree(), alpha=0.4)
+# ring = LinearRing(list(zip(lons, lats)))
+# ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
+
+lake_vict_region = dict(lonmin=32.6,
+                        lonmax=38.0,
+                        latmin=-5.0,
+                        latmax=2.5,
+                    )
+highlands_region = dict(lonmin=35,
+                        lonmax=40,
+                        latmin=5.5,
+                        latmax=12.5,
+                    )
+
+fig = plot_geog_location(region['lonmin'],region['lonmax'],region['latmin'],region['latmax'])
+
+fig = plot_polygon(fig, lake_vict_region['lonmin'],lake_vict_region['lonmax'],lake_vict_region['latmin'],lake_vict_region['latmax'])
+fig.suptitle('Whole Region')
+fig.savefig('figs/whole_region.png')
+
+fig = plot_geog_location(lake_vict_region['lonmin'],lake_vict_region['lonmax'],lake_vict_region['latmin'],lake_vict_region['latmax'])
+fig.suptitle('Lake Victoria Region')
+fig.savefig('figs/lake_vict_region.png')
+
+fig = plot_geog_location(highlands_region['lonmin'],highlands_region['lonmax'],highlands_region['latmin'],highlands_region['latmax'])
+fig.suptitle('Ethiopian Highlands Region')
+fig.savefig('figs/highlands_region.png')
 
 
+# ax.get_xlim(), ax.get_ylim()
+# cb = fig.colorbar(hb, ax=ax)
+
+from mpl_toolkits.basemap import Basemap
+from matplotlib.patches import Polygon
+# OLD CODE (basemap)
 from itertools import chain
 
 def draw_map(m, scale=0.2):
