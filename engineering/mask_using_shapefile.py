@@ -2,7 +2,7 @@ from rasterio import features
 from affine import Affine
 import xarray as xr
 import numpy as np
-
+import geopandas as gpd
 
 def transform_from_latlon(lat, lon):
     """ input 1D array of lat / lon and output an Affine transformation

@@ -17,7 +17,7 @@ import os
 
 from preprocessing.utils import *
 
-from exploration.mask_using_shapefile import add_shape_coord_from_data_array
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 
 #%%
 # ------------------------------------------------------------------------------
@@ -301,7 +301,7 @@ plot_all_spatial_means(ds_vic, 'victoria_region')
 base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
 river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
 
-add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
+river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
 
 #%%
 # ------------------------------------------------------------------------------
