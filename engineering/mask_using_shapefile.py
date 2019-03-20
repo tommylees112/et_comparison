@@ -116,7 +116,7 @@ def add_shape_coord_from_data_array(
 
     # 3. create a new coord in the xr_da which will be set to the id in `shapes`
     xr_da[coord_name] = rasterize(
-        shapes, xr_da.coords, longitude="longitude", latitude="latitude"
+        shapes, xr_da.coords, longitude=longitude, latitude=latitude
     )
 
     return xr_da
