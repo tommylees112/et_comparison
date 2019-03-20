@@ -114,6 +114,8 @@ def add_shape_coord_from_data_array(
     #    this allows for many different polygons within a .shp file (e.g. States of US)
     shapes = [(shape, n) for n, shape in enumerate(shp_gpd.geometry)]
 
+    # BUT WE HAVE NO DICTIONARY FOR WHICH VALUES ARE WHICH
+
     # 3. create a new coord in the xr_da which will be set to the id in `shapes`
     xr_da[coord_name] = rasterize(
         shapes, xr_da.coords, longitude=longitude, latitude=latitude

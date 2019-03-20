@@ -295,7 +295,17 @@ plot_all_spatial_means(ds_vic, 'victoria_region')
 
 #%%
 # ------------------------------------------------------------------------------
+# Work with ESA CCI Landcover data
+# https://annefou.github.io/metos_python/07-LargeFiles/
+# ------------------------------------------------------------------------------
+
+ds = xr.open_dataset('ESACCI-LC-L4-LCCS-Map-300m-P5Y-2005-v1.6.1.nc', chunks={'lat': 1000,'lon': 1000})
+
+
+#%%
+# ------------------------------------------------------------------------------
 # Subset by River Basins (or any other shapefile)
+# http://www.fao.org/geonetwork/srv/en/metadata.show?id=30915&currTab=simple
 # ------------------------------------------------------------------------------
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 
