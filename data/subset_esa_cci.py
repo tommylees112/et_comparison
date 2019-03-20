@@ -1,6 +1,8 @@
 # subset_esa_cci.py
 import xarray as xr
 from pathlib import Path
+from dask.diagnostics import ProgressBar
+import os
 
 lonmin=32.6
 lonmax=51.8
@@ -16,23 +18,27 @@ mid_file = base_data_path / "ESACCI_LC_L4-Map_300m.nc"
 lc = xr.open_dataset(in_file, chunks={'lat': 1000,'lon': 1000})
 
 lc = lc.sel(lat=slice(latmax,latmin), lon=slice(lonmin,lonmax))
-lc.to_netcdf(mid_file)
+delayed_obj = lc.to_netcdf(mid_file, compute=False)
 
-print(f"WRITTEN TO NETCDF {mid_file}")
+print('**** BEGINNING OUTPUT OF NETCDF FILE ****')
+with ProgressBar():
+        results = delayed_obj.compute()
+
+print(f"**** WRITTEN TO NETCDF {mid_file} ****")
 
 #
-cmd = """
-base_data_path=/soge-home/projects/crop_yield/EGU_compare
-
-lonmin=32.6
-lonmax=51.8
-latmin=-5.0
-latmax=15.2
-
-in_file=$base_data_path/ESACCI_LC_L4-Map_300m.nc
-out_file=$base_data_path/EA_ESACCI_LC.nc
-
-cdo sellonlatbox,$lonmin,$lonmax,$latmin,$latmax $in_file $out_file
-"""
-
-os.system(cmd)
+# cmd = """
+# base_data_path=/soge-home/projects/crop_yield/EGU_compare
+#
+# lonmin=32.6
+# lonmax=51.8
+# latmin=-5.0
+# latmax=15.2
+#
+# in_file=$base_data_path/ESACCI_LC_L4-Map_300m.nc
+# out_file=$base_data_path/EA_ESACCI_LC.nc
+#
+# cdo sellonlatbox,$lonmin,$lonmax,$latmin,$latmax $in_file $out_file
+# """
+#
+# os.system(cmd)
