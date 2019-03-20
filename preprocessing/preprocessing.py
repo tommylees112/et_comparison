@@ -5,7 +5,7 @@ from preprocessing.holaps_cleaner import HolapsCleaner
 from preprocessing.modis_cleaner import ModisCleaner
 from preprocessing.gleam_cleaner import GleamCleaner
 from preprocessing.chirps_cleaner import ChirpsCleaner
-from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner()
+from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner
 from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
 if __name__ == "__main__":
