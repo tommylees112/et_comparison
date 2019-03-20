@@ -1,6 +1,7 @@
 from .holaps_cleaner import HolapsCleaner
 from .modis_cleaner import ModisCleaner
 from .gleam_cleaner import GleamCleaner
+from .chirps_cleaner import ChirpsCleaner
 from .utils import merge_data_arrays, save_netcdf, get_all_valid
 
 
@@ -15,6 +16,9 @@ if __name__ == "__main__":
     g.preprocess()
     m = ModisCleaner()
     m.preprocess()
+
+    c = ChirpsCleaner()
+    c.preprocess()
 
     # merge the preprocessed data and save to netcdf
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data)
