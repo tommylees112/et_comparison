@@ -1,14 +1,13 @@
+import sys
+sys.path.insert(0, "/soge-home/projects/crop_yield/et_comparison/")
+
 from .holaps_cleaner import HolapsCleaner
 from .modis_cleaner import ModisCleaner
 from .gleam_cleaner import GleamCleaner
 from .chirps_cleaner import ChirpsCleaner
 from .utils import merge_data_arrays, save_netcdf, get_all_valid
 
-
-
 if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, "/soge-home/projects/crop_yield/et_comparison/")
 
     h = HolapsCleaner()
     h.preprocess()
