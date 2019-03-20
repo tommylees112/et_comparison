@@ -27,7 +27,7 @@ class ChirpsCleaner(Cleaner):
 
         # CHANGE THIS PATH:
         # ----------------------------------------------------------------------
-        data_path = self.base_data_path / "africa_chirps_final.nc"
+        data_path = self.base_data_path / "EA_chirps_monthly.nc"
         # ----------------------------------------------------------------------
 
         # open the reference dataset
