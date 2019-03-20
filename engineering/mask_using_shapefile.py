@@ -4,6 +4,7 @@ import xarray as xr
 import numpy as np
 import geopandas as gpd
 
+
 def transform_from_latlon(lat, lon):
     """ input 1D array of lat / lon and output an Affine transformation
 
@@ -21,8 +22,7 @@ def transform_from_latlon(lat, lon):
     return trans * scale
 
 
-def rasterize(shapes, coords, latitude='latitude', longitude='longitude',
-              fill=np.nan, **kwargs):
+def rasterize(shapes, coords, latitude="lat", longitude="lon", fill=np.nan, **kwargs):
     """Rasterize a list of (geometry, fill_value) tuples onto the given
     xray coordinates. This only works for 1d latitude and longitude
     arrays.
@@ -65,14 +65,21 @@ def rasterize(shapes, coords, latitude='latitude', longitude='longitude',
     """
     transform = transform_from_latlon(coords[latitude], coords[longitude])
     out_shape = (len(coords[latitude]), len(coords[longitude]))
-    raster = features.rasterize(shapes, out_shape=out_shape,
-                                fill=fill, transform=transform,
-                                dtype=float, **kwargs)
+    raster = features.rasterize(
+        shapes,
+        out_shape=out_shape,
+        fill=fill,
+        transform=transform,
+        dtype=float,
+        **kwargs
+    )
     spatial_coords = {latitude: coords[latitude], longitude: coords[longitude]}
     return xr.DataArray(raster, coords=spatial_coords, dims=(latitude, longitude))
 
 
-def add_shape_coord_from_data_array(xr_da, shp_path, coord_name):
+def add_shape_coord_from_data_array(
+    xr_da, shp_path, coord_name, longitude="lon", latitude="lat"
+):
     """ Create a new coord for the xr_da indicating whether or not it
          is inside the shapefile
 
@@ -88,7 +95,10 @@ def add_shape_coord_from_data_array(xr_da, shp_path, coord_name):
         : coord_name (str)
             the coord to create in your xarray object (supports multiple
              geometries in the shapefile)
-
+        : latitude (str)
+            the coordinate name for the latitude in the xr_da
+        : longitude (str)
+            the coordinate name for the longitude in the xr_da
         Usage:
         -----
         # create a new coordinate in the xarray object
@@ -105,7 +115,8 @@ def add_shape_coord_from_data_array(xr_da, shp_path, coord_name):
     shapes = [(shape, n) for n, shape in enumerate(shp_gpd.geometry)]
 
     # 3. create a new coord in the xr_da which will be set to the id in `shapes`
-    xr_da[coord_name] = rasterize(shapes, xr_da.coords,
-                               longitude='longitude', latitude='latitude')
+    xr_da[coord_name] = rasterize(
+        shapes, xr_da.coords, longitude="longitude", latitude="latitude"
+    )
 
     return xr_da

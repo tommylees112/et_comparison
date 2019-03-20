@@ -297,6 +297,7 @@ plot_all_spatial_means(ds_vic, 'victoria_region')
 # ------------------------------------------------------------------------------
 # Subset by River Basins (or any other shapefile)
 # ------------------------------------------------------------------------------
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 
 base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
 river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
