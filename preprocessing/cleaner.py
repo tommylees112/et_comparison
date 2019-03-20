@@ -100,7 +100,7 @@ class Cleaner:
         self.update_clean_data(regrid_data, msg="Data Regridded to same as HOLAPS")
         return
 
-    def use_reference_mask(self):
+    def use_reference_mask(self, one_time=False):
         assert not 'units' in self.mask.coords, "MUST NOT HAVE EXTRA COORDS or you remove ALL values. self.mask has 'units' coord and needs to be dropped:\n self.mask = self.mask.drop('units')"
         assert (
             self.reference_ds is not None
@@ -108,6 +108,11 @@ class Cleaner:
         assert (
             self.mask is not None
         ), "self.mask does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
+
+        # if only one timestep (e.g. landcover) then convert to one time
+        if one_time:
+            self.mask = self.mask.isel(time=0)
+
         masked_d = self.clean_data.where(~self.mask.values)
         self.update_clean_data(masked_d, msg="Copied the mask from HOLAPS to GLEAM")
         return
