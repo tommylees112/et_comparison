@@ -56,6 +56,11 @@ class Cleaner:
         # start with clean data as a copy of the raw data
         self.clean_data = self.raw_data.copy()
 
+
+    def get_mask(self):
+        self.mask = get_holaps_mask(self.reference_ds)
+
+
     def update_clean_data(self, clean_data, msg=""):
         """ """
         self.clean_data = clean_data
@@ -82,14 +87,14 @@ class Cleaner:
 
         return
 
-    def regrid_to_reference(self):
+    def regrid_to_reference(self, method="nearest_s2d"):
         """ regrid data (spatially) onto the same grid as referebce data """
         assert (
             self.reference_ds is not None
         ), "self.reference_ds does not exist! Likely because you're not using the MODIS or GLEAM cleaners / correct data paths"
 
         regrid_data = convert_to_same_grid(
-            self.reference_ds, self.clean_data, method="nearest_s2d"
+            self.reference_ds, self.clean_data, method=method
         )
         # UPDATE THE SELF.CLEAN_DATA
         self.update_clean_data(regrid_data, msg="Data Regridded to same as HOLAPS")

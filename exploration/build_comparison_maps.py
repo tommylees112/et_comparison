@@ -149,7 +149,7 @@ nonan_m = drop_nans_and_flatten(m)
 da1 = h
 da2 = g
 
-def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5):
+def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5, title_extra=None):
     """
     Arguments:
     ---------
@@ -178,7 +178,7 @@ def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5):
     # axes options
     dataset_name_x = da1.name.split('_')[0]
     dataset_name_y = da2.name.split('_')[0]
-    title = "Evapotranspiration" + ": " + dataset_name_x + " vs. " + dataset_name_y + "\n" + "Pearsons R: " + "%.2f" % r_value[0]
+    title = "Evapotranspiration" + ": " + dataset_name_x + " vs. " + dataset_name_y + "\n" + "Pearsons R: " + "%.2f" % r_value[0] + "\n" + title_extra
     ax.set_xlabel(dataset_name_x)
     ax.set_ylabel(dataset_name_y)
     ax.set_title(title)
@@ -191,7 +191,7 @@ def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5):
         cb.set_label('counts')
 
     #
-    fig.savefig(f'figs/{dataset_name_x}_v_{dataset_name_y}{bins}_{mincnt}_hexbin.png')
+    fig.savefig(f'figs/{title_extra}{dataset_name_x}_v_{dataset_name_y}{bins}_{mincnt}_hexbin.png')
 
 plot_hexbin_comparisons(h, g, 'log')
 plot_hexbin_comparisons(h, m, 'log')
@@ -200,6 +200,96 @@ plot_hexbin_comparisons(g, m, 'log')
 plot_hexbin_comparisons(h, g, mincnt=100, bins='log')
 plot_hexbin_comparisons(h, m, mincnt=5)
 plot_hexbin_comparisons(g, m, mincnt=5)
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Subset by regions
+# ------------------------------------------------------------------------------
+
+lake_vict_region = dict(lonmin=32.6,
+                        lonmax=38.0,
+                        latmin=-5.0,
+                        latmax=2.5,
+                    )
+highlands_region = dict(
+                        lonmin=35,
+                        lonmax=40,
+                        latmin=5.5,
+                        latmax=12.5
+                    )
+
+from collections import namedtuple
+Region = namedtuple('Region',field_names=['lonmin','lonmax','latmin','latmax'])
+
+highlands_region = Region(
+    lonmin=35,
+    lonmax=40,
+    latmin=5.5,
+    latmax=12.5
+    )
+
+lake_vict_region = Region(
+    lonmin=32.6,
+    lonmax=38.0,
+    latmin=-5.0,
+    latmax=2.5
+    )
+
+lowland_region = Region(
+    lonmin=32.6,
+    lonmax=42.5,
+    latmin=0.0,
+    latmax=12
+)
+
+# USE NAMED TUPLES
+def select_bounding_box_xarray(ds, region):
+    """ """
+    lonmin = region.lonmin
+    lonmax = region.lonmax
+    latmin = region.latmin
+    latmax = region.latmax
+    return ds.sel(lat=slice(latmin, latmax), lon=slice(lonmin, lonmax))
+
+
+ds_high = select_bounding_box_xarray(ds, highlands_region)
+ds_vic = select_bounding_box_xarray(ds, lake_vict_region)
+ds_low = select_bounding_box_xarray(ds, lowland_region)
+
+def comparison_hexbins(ds, area):
+    h = ds.holaps_evapotranspiration
+    m = ds.modis_evapotranspiration
+    g = ds.gleam_evapotranspiration
+    plot_hexbin_comparisons(h, g, bins='log', mincnt=0.5, title_extra=area)
+    plot_hexbin_comparisons(h, m, bins='log', mincnt=0.5, title_extra=area)
+    plot_hexbin_comparisons(g, m, bins='log', mincnt=0.5, title_extra=area)
+
+    return
+
+comparison_hexbins(ds_high, 'highlands_region')
+comparison_hexbins(ds_low, 'lowlands_region')
+comparison_hexbins(ds_vic, 'victoria_region')
+
+def plot_all_spatial_means(ds, area):
+    h = ds.holaps_evapotranspiration.mean(dim='time')
+    fig,ax = plot_xarray_on_map(h)
+    ax.set_title(f'{area}')
+    fig.savefig(f'figs/holaps_temporal_mean_{area}.png')
+    m = ds.modis_evapotranspiration.mean(dim='time')
+    fig,ax = plot_xarray_on_map(m)
+    ax.set_title(f'{area}')
+    fig.savefig(f'figs/modis_temporal_mean_{area}.png')
+    g = ds.gleam_evapotranspiration.mean(dim='time')
+    fig,ax = plot_xarray_on_map(g)
+    ax.set_title(f'{area}')
+    fig.savefig(f'figs/gleam_temporal_mean_{area}.png')
+    return
+
+plot_all_spatial_means(ds_high, 'highlands_region')
+plot_all_spatial_means(ds_low, 'lowlands_region')
+plot_all_spatial_means(ds_vic, 'victoria_region')
+
 
 #%%
 # ------------------------------------------------------------------------------
@@ -223,6 +313,7 @@ def plot_xarray_on_map(da,borders=True,coastlines=True,**kwargs):
 
     ax.coastlines();
     ax.add_feature(cartopy.feature.BORDERS,linestyle=':');
+    ax.add_feature(cartopy.feature.LAKES,facecolor=None);
     fig = plt.gcf()
     return fig, ax
 
@@ -408,8 +499,42 @@ region = dict(lonmin=32.6,
     latmin=-5.0,
     latmax=15.2,
 )
-def plot_geog_location(lonmin,lonmax,latmin,latmax):
-    """ use cartopy to plot """
+
+from collections import namedtuple
+Region = namedtuple('Region',field_names=['lonmin','lonmax','latmin','latmax'])
+
+region = Region(
+    lonmin=32.6,
+    lonmax=51.8,
+    latmin=-5.0,
+    latmax=15.2,
+)
+
+highlands_region = Region(
+    lonmin=35,
+    lonmax=40,
+    latmin=5.5,
+    latmax=12.5
+    )
+
+lake_vict_region = Region(
+    lonmin=32.6,
+    lonmax=38.0,
+    latmin=-5.0,
+    latmax=2.5
+    )
+
+lowland_region = Region(
+    lonmin=32.6,
+    lonmax=42.5,
+    latmin=0.0,
+    latmax=12
+)
+
+
+def plot_geog_location(region):
+    """ use cartopy to plot the region (defined as a namedtuple object)"""
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
     ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
     ax.add_feature(cpf.COASTLINE)
     ax.add_feature(cpf.BORDERS, linestyle=':')
@@ -434,6 +559,20 @@ def plot_geog_location(lonmin,lonmax,latmin,latmax):
     return fig
 
 
+def plot_all_regions():
+    fig = plot_geog_location(region)
+    plt.gca().set_title('ALL_region')
+    fig.savefig('figs/ALL_region_location.png')
+    fig = plot_geog_location(highlands_region)
+    plt.gca().set_title('highlands_region')
+    fig.savefig('figs/highlands_region_location.png')
+    fig = plot_geog_location(lake_vict_region)
+    plt.gca().set_title('lake_vict_region')
+    fig.savefig('figs/lake_vict_region_location.png')
+    fig = plot_geog_location(lowland_region)
+    plt.gca().set_title('lowland_region')
+    fig.savefig('figs/lowland_region_region_location.png')
+
 def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
     """
     Note:
@@ -452,29 +591,30 @@ def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
 
 
     return fig
-
-ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
-ax.add_feature(cpf.COASTLINE)
-ax.add_feature(cpf.BORDERS, linestyle=':')
-ax.add_feature(cpf.LAKES)
-ax.set_extent([lonmin, lonmax, latmin, latmax])
-# plot the lat lon labels
-# https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
-# https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
-xticks = np.linspace(lonmin, lonmax, 5)
-yticks = np.linspace(latmin, latmax, 5)
-ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
-ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
-lon_formatter = LongitudeFormatter(zero_direction_label=True)
-lat_formatter = LatitudeFormatter()
-ax.xaxis.set_major_formatter(lon_formatter)
-ax.yaxis.set_major_formatter(lat_formatter)
-
-lons = [lake_vict_region['latmin'], lake_vict_region['latmin'], lake_vict_region['latmax'], lake_vict_region['latmax']]
-lats = [lake_vict_region['lonmin'], lake_vict_region['lonmax'], lake_vict_region['lonmax'], lake_vict_region['lonmin']]
-ax.fill(lons, lats, color='coral', transform=cartopy.crs.PlateCarree(), alpha=0.4)
-# ring = LinearRing(list(zip(lons, lats)))
-# ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
+#
+# ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+# ax = plt.subplot(projection=cartopy.crs.PlateCarree())
+# ax.add_feature(cpf.COASTLINE)
+# ax.add_feature(cpf.BORDERS, linestyle=':')
+# ax.add_feature(cpf.LAKES)
+# ax.set_extent([lonmin, lonmax, latmin, latmax])
+# # plot the lat lon labels
+# # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
+# # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
+# xticks = np.linspace(lonmin, lonmax, 5)
+# yticks = np.linspace(latmin, latmax, 5)
+# ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
+# ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
+# lon_formatter = LongitudeFormatter(zero_direction_label=True)
+# lat_formatter = LatitudeFormatter()
+# ax.xaxis.set_major_formatter(lon_formatter)
+# ax.yaxis.set_major_formatter(lat_formatter)
+#
+# lons = [lake_vict_region['latmin'], lake_vict_region['latmin'], lake_vict_region['latmax'], lake_vict_region['latmax']]
+# lats = [lake_vict_region['lonmin'], lake_vict_region['lonmax'], lake_vict_region['lonmax'], lake_vict_region['lonmin']]
+# ax.fill(lons, lats, color='coral', transform=cartopy.crs.PlateCarree(), alpha=0.4)
+# # ring = LinearRing(list(zip(lons, lats)))
+# # ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
 
 lake_vict_region = dict(lonmin=32.6,
                         lonmax=38.0,
