@@ -48,7 +48,7 @@ class ChirpsCleaner(Cleaner):
 
     def convert_units(self):
         daily_mm = self.clean_data / 30.417
-        update_clean_data(daily_mm, msg="Change the mm month-1 values to mm day-1")
+        self.update_clean_data(daily_mm, msg="Change the mm month-1 values to mm day-1")
 
 
     def preprocess(self):
