@@ -52,7 +52,6 @@ class EsaCciCleaner(Cleaner):
     def preprocess(self):
         # regrid to same as reference data (holaps)
         self.regrid_to_reference() # method='bilinear'
-        ipdb.set_trace()
         # ipdb.set_trace()
         # use the same mask as HOLAPS
         self.use_reference_mask(one_time=True) # THIS GOING WRONG (NEEDS only one time dim)
