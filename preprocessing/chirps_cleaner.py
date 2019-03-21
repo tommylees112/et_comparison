@@ -8,7 +8,7 @@ import ipdb
 import warnings
 import os
 
-from .utils import (
+from preprocessing.utils import (
     gdal_reproject,
     bands_to_time,
     convert_to_same_grid,
@@ -18,7 +18,7 @@ from .utils import (
     merge_data_arrays,
 )
 
-from .cleaner import Cleaner
+from preprocessing.cleaner import Cleaner
 
 class ChirpsCleaner(Cleaner):
     def __init__(self):
@@ -49,6 +49,7 @@ class ChirpsCleaner(Cleaner):
 
     def convert_units(self):
         daily_mm = self.clean_data / 30.417
+        daily_mm.attrs.units = 'mm day-1'
         self.update_clean_data(daily_mm, msg="Change the mm month-1 values to mm day-1")
 
 

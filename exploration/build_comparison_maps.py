@@ -318,8 +318,9 @@ def plot_marginal_distribution(DataArray, color):
     da_flat = drop_nans_and_flatten(DataArray)
     # plot the histogram
     sns.distplot(da_flat, ax=ax, color=h_col)
-    title= f'Density Plot of {DataArray.name} [{DataArray.units}]'
-    xlabel = f'Mean Monthly {DataArray.name} [{DataArray.units}]'
+    warnings.warn('Hardcoding the values of the ')
+    title= f'Density Plot of {DataArray.name} [mm day-1]'
+    xlabel = f'Mean Monthly {DataArray.name} [mm day-1]'
     ax.set_title(title)
     ax.set_xlabel(xlabel)
 

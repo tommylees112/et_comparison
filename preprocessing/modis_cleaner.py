@@ -6,7 +6,7 @@ import ipdb
 import warnings
 import os
 
-from .utils import (
+from preprocessing.utils import (
     gdal_reproject,
     bands_to_time,
     convert_to_same_grid,
@@ -16,7 +16,7 @@ from .utils import (
     merge_data_arrays,
 )
 
-from .cleaner import Cleaner
+from preprocessing.cleaner import Cleaner
 
 # ------------------------------------------------------------------------------
 # MODIS cleaner
