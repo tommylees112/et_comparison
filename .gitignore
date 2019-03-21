@@ -12,3 +12,7 @@ figs/svg/*
 figs/*.png
 
 .DS_Store
+
+*.nc
+*/__pycache__
+__pycache__
