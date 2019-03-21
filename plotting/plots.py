@@ -11,10 +11,36 @@ import itertools
 
 import os
 
+from engineering.eng_utils import drop_nans_and_flatten
+
 # ------------------------------------------------------------------------------
 # Histograms (Marginal Distributions)
 # ------------------------------------------------------------------------------
 
+def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFAULT', **kwargs):
+    """ """
+    # if no ax create one
+    if ax is None:
+        fig,ax = plt.subplots(figsize=(12,8))
+
+    # flatten the DataArray
+    da_flat = drop_nans_and_flatten(DataArray)
+    # plot the histogram
+    sns.distplot(da_flat, ax=ax, color=h_col, **kwargs)
+    warnings.warn('Hardcoding the values of the units becuase they should have already been converted to mm day-1')
+
+    if title is None:
+        ax.set_title('')
+    else:
+        title= f'Density Plot of {DataArray.name} [mm day-1]'
+        ax.set_title(title)
+
+    if xlabel == 'DEFAULT':
+        xlabel = f'Mean Monthly {DataArray.name} [mm day-1]'
+
+    ax.set_xlabel(xlabel)
+
+    return fig, ax
 
 
 # ------------------------------------------------------------------------------
@@ -144,6 +170,16 @@ def plot_joint_plot_hex1(da1, da2, col1, col2, bins='log', xlabel='da1', ylabel=
 # Spatial Plots
 # ------------------------------------------------------------------------------
 
+def plot_mean_time(DataArray, ax, add_colorbar=True, **kwargs):
+    """ plot the SPATIAL variability by collapsing the 'time' dimension
+
+    NOTE: must have 'time' in the coordinate dimensions of the xr.DataArray
+    """
+
+    DataArray.mean(dim='time').plot(ax=ax, **kwargs, add_colorbar=add_colorbar)
+    return
+
+
 def plot_all_spatial_means(ds, area):
     """ For a given subsetted xr.Dataset `ds`, plot the temporal mean spatial
     plot.
@@ -233,8 +269,6 @@ def get_variables_for_comparison1():
     return variables, comparisons
 
 
-def plot_mean_time(DataArray, ax, add_colorbar=True, **kwargs):
-    DataArray.mean(dim='time').plot(ax=ax, **kwargs, add_colorbar=add_colorbar)
 
 
 def plot_mean_spatial_differences_ET(ds, **kwargs):

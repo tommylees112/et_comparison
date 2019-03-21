@@ -196,6 +196,26 @@ def get_holaps_mask(ds):
     return mask
 
 
+
+def select_east_africa(ds):
+    """ """
+    lonmin=32.6
+    lonmax=51.8
+    latmin=-5.0
+    latmax=15.2
+
+    if ('x' in ds.dims) & ('y' in ds.dims):
+        ds = ds.sel(y=slice(latmax,latmin),x=slice(lonmin, lonmax))
+    elif ('lat' in ds.dims) & ('lon' in ds.dims):
+        ds = ds.sel(lat=slice(latmax,latmin),lon=slice(lonmin, lonmax))
+    elif ('latitude' in ds.dims) & ('longitude' in ds.dims):
+        ds = ds.sel(latitude=slice(latmax,latmin),longitude=slice(lonmin, lonmax))
+    else:
+        assert False, "You need one of [(y, x), (lat, lon), (latitude, longitude)] in your dims"
+
+    return
+
+
 # ------------------------------------------------------------------------------
 # Functions for working with xarray objects
 # ------------------------------------------------------------------------------

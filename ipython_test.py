@@ -66,3 +66,5 @@ def create_flattened_dataframe_of_values(h,g,m):
 
 
 dist_df = create_flattened_dataframe_of_values(h,g,m)
+
+topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')

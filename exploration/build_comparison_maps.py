@@ -301,31 +301,13 @@ for var, data in zip(variables, datasets):
 # Plot the histograms of values
 # ------------------------------------------------------------------------------
 
+from plotting.plots import plot_marginal_distribution
+
 # GET colors for each variable
 h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
 c_col = sns.color_palette()[3]
-
-from plotting.plots import plot_marginal_distribution
-
-# Plot holaps
-# -----------
-def plot_marginal_distribution(DataArray, color):
-    """ """
-    fig,ax = plt.subplots(figsize=(12,8))
-    # flatten the DataArray
-    da_flat = drop_nans_and_flatten(DataArray)
-    # plot the histogram
-    sns.distplot(da_flat, ax=ax, color=h_col)
-    warnings.warn('Hardcoding the values of the ')
-    title= f'Density Plot of {DataArray.name} [mm day-1]'
-    xlabel = f'Mean Monthly {DataArray.name} [mm day-1]'
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-
-    return fig, ax
-
 
 variables = ['holaps_evapotranspiration',
              'gleam_evapotranspiration',
@@ -340,57 +322,193 @@ for i, var in enumerate(variables):
     plot_marginal_distribution(DataArray, color)
     fig.savefig(f'figs/{var}_histogram.png')
 
-fig1,ax1=plt.subplots(figsize=(12,8))
-h_flat = drop_nans_and_flatten(ds.holaps_evapotranspiration)
-
-sns.set_color_codes()
-sns.distplot(h_flat, ax=ax1, color=h_col)
-
-ax1.set_title(f'Density Plot of HOLAPS Mean Monthly Evapotranspiration [{ds.holaps_evapotranspiration.units}]')
-ax1.set_xlabel(f'Mean Monthly Evapotranspiration [{ds.holaps_evapotranspiration.units}]')
-fig1.savefig('figs/holaps_hist1.png')
-# fig1.savefig('figs/holaps_hist1.svg')
-
-# Plot modis
-# -----------
-fig2,ax2=plt.subplots(figsize=(12,8))
-m_flat = drop_nans_and_flatten(ds.modis_evapotranspiration)
-
-sns.set_color_codes()
-sns.distplot(m_flat,ax=ax2, color=m_col)
-
-ax2.set_title(f'Density Plot of MODIS Monthly Actual Evapotranspiration [{ds.modis_evapotranspiration.units}]')
-ax2.set_xlabel(f'Monthly Actual Evapotranspiration [{ds.modis_evapotranspiration.units}]')
-fig2.savefig('figs/modis_hist1.png')
-# fig2.savefig('figs/modis_hist1.svg')
-
-# Plot gleam
-# -----------
-fig3,ax3=plt.subplots(figsize=(12,8))
-g_flat = drop_nans_and_flatten(ds.gleam_evapotranspiration)
-
-sns.set_color_codes()
-sns.distplot(g_flat,ax=ax3, color=g_col)
-
-ax3.set_title(f'Density Plot of GLEAM Monthly mean daily Actual Evapotranspiration [{g.clean_data.units}] ')
-ax3.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [{g.clean_data.units}]')
-fig3.savefig('figs/gleam_hist1.png')
-# fig3.savefig('figs/gleam_hist1.svg')
-
 #%%
 # ------------------------------------------------------------------------------
-# PLOT segmented map AND histograms
+# PLOT segmented map AND histograms (TOPO)
 # ------------------------------------------------------------------------------
 
+
+
+
+
 def get_unmasked_data(dataArray, dataMask):
-    """ """
+    """ get the data INSIDE the dataMask
+    Keep values if True, remove values if False
+     (doing the opposite of a 'mask' - perhaps should rename)
+    """
     return dataArray.where(dataMask)
+
 
 h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
+c_col = sns.color_palette()[3]
 colors = [h_col, m_col, g_col]
-kwargs = {"vmin":0,"vmax":3.5}
+
+
+
+def plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim, xlim):
+    """ do the processing of the axes and plotting of the conditional distribution
+    (conditional on being inside a topographic range)
+    """
+    ax_hist.set_ylim(ylim)
+    ax_hist.set_xlim(xlim)
+    plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataset)
+    return
+
+
+
+
+def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
+    """ SPATIAL and HISTOGRAM plots to show the conditional distributions given
+         a particular mask.
+
+    Arguments:
+    ---------
+    : dataMask (xr.DataArray)
+        Mask for a particular area
+    : DataArrays (list, tuple, iterable?)
+        list of xr.DataArrays to use for the data.
+    """
+    assert all([isinstance(da, xr.DataArray) for da in DataArrays]), f"Currently only works when every member of DataArrays are xr.DataArray. Currently: {[type(da) for da in DataArrays]}"
+    assert len(colors) == len(DataArrays), f"Len of the colors has to be equal to the len of the DataArrays \n Currently len(colors): {len(colors)} \tlen(DataArrays): {len(DataArrays)}"
+    assert len(titles) == len(DataArrays), f"Len of the titles has to be equal to the len of the DataArrays \n Currently len(titles): {len(titles)} \tlen(DataArrays): {len(DataArrays)}"
+
+    fig, axs = plt.subplots(2, len(DataArrays), figsize=(12*scale,8*scale))
+    for j, DataArray in enumerate(DataArrays):
+        if 'time' in DataArray.dims:
+            # if time variable e.g. Evapotranspiration
+            DataArray = get_unmasked_data(DataArray.mean(dim='time'), dataMask)
+        else:
+            # if time constant e.g. landcover
+            DataArray = get_unmasked_data(DataArray, dataMask)
+
+        # get the axes for the spatial plots and the histograms
+        ax_map = axs[0,j]
+        ax_hist = axs[1,j]
+        color = colors[j]
+        title = titles[j]
+
+        ax_map.set_title(f'{dataset} Evapotranspiration')
+        # plot the map
+        plot_mean_time(dataArray, ax_map, add_colorbar=True, **kwargs)
+        # plot the histogram
+        plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim=[0,1.1],xlim=[0,7])
+
+    return fig
+
+
+
+
+topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')
+
+# ------------------------------------------------------------------------------
+# plot topo histogram
+title = "Density Plot of Topography/Elevation in East Africa Region"
+fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
+fig.savefig('figs/topo_histogram.png')
+
+
+# plot topo_histogram with quintiles
+# get the qunitile values
+qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
+fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
+[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
+fig.savefig('figs/topo_histogram_quintiles.png')
+
+# convert to dataset
+topo = topo.to_dataset(name='elevation')
+
+interval_ranges = [(interval.left, interval.right) for interval in intervals]
+
+# TEST THIS!!!!
+
+def bin_dataset(ds, group_var, n_bins):
+    """
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+        the dataset that you want to group / bin
+    : group_var (str)
+        the data variable that you want to group into bins
+
+    Returns:
+    -------
+    : topo_bins (xr.Dataset)
+        dataset object with number of variables equal to the number of bins
+    : intervals (tuple)
+        tuple of tuples with the bin left and right edges
+         (intervals[0][0] = left edge;
+          intervals[0][0] = right edge
+         )
+    """
+    bins = ds.groupby_bins(group=group_var,bins=10)
+    assert False, "hardcoding the elevation_bins here need to do this dynamically"
+    binned_var = [var for var in bins.variables.keys() if "_bins" in var]
+    assert len(binned_var) == 1, "The binned Var should only be one variable!"
+    binned_var = binned_var[0]
+
+    # extract the bin locations
+    intervals = bins.mean()[binned_var].values
+    left_bins = [interval.left for interval in intervals]
+    # use bin locations to create mask variables of those values inside that
+    ds_bins = xr.concat([ds.where(
+                                 (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
+                               )
+                        for interval in intervals
+                       ]
+    )
+    ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
+
+    return ds_bins, intervals
+
+
+topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
+
+# repeat for 60 timesteps (TO BE USED AS `ds` mask)
+topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+topo_bins = topo_bins.rename({'concat_dims':'time'})
+topo_bins['time'] = ds.time
+
+
+
+topo = topo.to_dataset()
+bins = topo.groupby_bins(group='elevation',bins=10)
+intervals = bins.mean().elevation_bins.values
+left_bins = [interval.left for interval in intervals]
+topo_bins = xr.concat([topo.where(
+                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
+            )
+            for interval in intervals ]
+)
+topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
+
+
+
+
+
+
+
+
+# for each of the 10 topography bins
+for i in range(10):
+    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
+    dataArrays = [ds.holaps_evapotranspiration,
+               ds.modis_evapotranspiration,
+               ds.gleam_evapotranspiration]
+    colors = [h_col, m_col, g_col]
+    titles = ["holaps_evapotranspiration",
+              "modis_evapotranspiration",
+              "gleam_evapotranspiration"]
+    kwargs = {"vmin":0,"vmax":3.5}
+    fig = plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs)
+
+    # add the figure titles and save figures
+    elevation_range = interval_ranges[i]
+    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
+    # fig.savefig(f'figs/elevation_bin{i}.png')
+
+
 
 for i in range(10):
     scale=1.5
@@ -398,20 +516,21 @@ for i in range(10):
     dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
 
     for j, dataset in enumerate(['holaps','modis','gleam']):
-        dataArray = ds_valid[f'{dataset}_evapotranspiration']
-        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
+        dataArray = ds[f'{dataset}_evapotranspiration']
+        dataArray = get_unmasked_data(dataArray.mean(dim='time'), dataMask)
         color = colors[j]
         # get the axes that correspond to the different rows
         ax_map = axs[0,j]
-        ax_map.set_title(f'{dataset} Evapotranspiration')
         ax_hist = axs[1,j]
-        ax_hist.set_ylim([0,1.1])
-        ax_hist.set_xlim([0,7])
+
+        ax_map.set_title(f'{dataset} Evapotranspiration')
+
         # plot the maps
-        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
+
         # plot the histograms
-        d = drop_nans_and_flatten(dataArray)
-        sns.distplot(d, ax=ax_hist,color=color)
+        plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim=[0,1.1],xlim=[0,7])
+
+
 
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
@@ -620,10 +739,13 @@ def plot_bounding_box_map(latmin,latmax,lonmin,lonmax):
     return fig
 
 plot_bounding_box_map(latmin,latmax,lonmin,lonmax)
+
+
 #%%
 # ------------------------------------------------------------------------------
 # Plot the Time Series of the points (spatial mean)
 # ------------------------------------------------------------------------------
+
 from matplotlib import cm
 from matplotlib.colors import ListedColormap
 
@@ -689,65 +811,12 @@ plt.legend()
 fig.savefig('figs/spatial_mean_seasonality_normed.png')
 
 
-
-
 #%%
 # ------------------------------------------------------------------------------
 # Analysis by Elevation: group by elevation
 # ------------------------------------------------------------------------------
 
-topo = xr.open_rasterio('../topography/ETOPO1_Ice_g.tif')
-topo = topo.drop('band')
-topo = topo.sel(band=0)
-topo.name = "elevation"
-# topo = topo.to_dataset()
 
-def select_east_africa(ds):
-    """ """
-    lonmin=32.6
-    lonmax=51.8
-    latmin=-5.0
-    latmax=15.2
-
-    return ds.sel(y=slice(latmax,latmin),x=slice(lonmin, lonmax))
-
-if not os.path.isfile('global_topography.nc'):
-    topo.to_netcdf('global_topography.nc')
-
-topo = select_east_africa(topo)
-topo = topo.rename({'y':'lat','x':'lon'})
-
-if not os.path.isfile('EA_topography.nc'):
-    topo.to_netcdf('EA_topography.nc')
-
-# convert to same grid as the other data (ds_valid)
-topo = convert_to_same_grid(ds_valid, topo, method="bilinear")
-
-# mask the same areas as other data (ds_valid)
-mask = get_holaps_mask(ds_valid.holaps_evapotranspiration)
-topo = topo.where(~mask)
-
-
-
-# ------------------------------------------------------------------------------
-# plot topo histogram
-t = drop_nans_and_flatten(topo)
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
-fig.savefig('figs/topo_histogram.png')
-plt.close()
-
-# plot topo histogram WITH QUINTILES (0,0.2,0.4,0.6,0.8,1.0)
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-ax.set_title(f'Density Plot of Topography/Elevation in East Africa Region')
-# get the qunitile values
-qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
-# plot vertical lines at the given quintile value
-[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
-fig.savefig('figs/topo_histogram_quintiles.png')
-plt.close()
 
 # ------------------------------------------------------------------------------
 # GROUPBY
@@ -804,7 +873,7 @@ for i in range(10):
 
     for j, dataset in enumerate(['holaps','modis','gleam']):
         dataArray = ds_valid[f'{dataset}_evapotranspiration']
-        dataArray = get_unmasked_data(dataArray.mean(dim='time'),dataMask)
+        dataArray = get_unmasked_data(dataArray.mean(dim='time'), dataMask)
         color = colors[j]
         # get the axes that correspond to the different rows
         ax_map = axs[0,j]
@@ -821,49 +890,3 @@ for i in range(10):
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
     fig.savefig(f'figs/elevation_bin{i}.png')
-
-
-#
-# # plot holaps_reprojected
-# # -----------------------
-# fig4,ax4=plt.subplots(figsize=(12,8))
-# h_repr = drop_nans_and_flatten(holaps_repr)
-#
-# sns.set_color_codes()
-# sns.distplot(h_repr,ax=ax4, color=h_col)
-#
-# ax4.set_title(f'Density Plot of HOLAPS Monthly Actual Evapotranspiration [mm day-1] ')
-# ax4.set_xlabel(f'Monthly mean daily Actual Evapotranspiration [mm day-1]')
-# fig4.savefig('figs/holaps_repr_hist1.png')
-# # fig4.savefig('figs/holaps_repr_hist1.svg')
-
-#%%
-# ------------------------------------------------------------------------------
-# JointPlots of variables
-# ------------------------------------------------------------------------------
-
-#%%
-# FIRST have to be mapped onto the same grid
-
-#
-# #%%
-# fig1,ax1=plt.subplots(figsize=(12,8))
-# h = drop_nans_and_flatten(holaps)
-# m = drop_nans_and_flatten(modis)
-#
-# g = sns.JointGrid(x=h, y=m)
-# g = g.plot_joint(plt.scatter, color="k", edgecolor="white")
-# _ = g.ax_marg_x.hist(h, color=h_col, alpha=.6,)
-#                      # bins=np.arange(0, 60, 5))
-#
-# _ = g.ax_marg_y.hist(m, color=m_col, alpha=.6,
-#                      orientation="horizontal",)
-#                      # bins=np.arange(0, 12, 1))
-
-
-
-
-
-
-
-#
