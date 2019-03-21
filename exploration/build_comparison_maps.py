@@ -46,31 +46,25 @@ df = ds.to_dataframe()
 # Seasonal Patterns
 # ------------------------------------------------------------------------------
 
-seasons = ds.groupby('time.season').mean(dim='time')
+from plotting.plots import plot_seasonal_spatial_means
 
+kwargs = {"vmin":0,"vmax":3.5}
+
+seasons = ds.groupby('time.season').mean(dim='time')
 variables = [
  'holaps_evapotranspiration',
  'gleam_evapotranspiration',
  'modis_evapotranspiration',
 ]
 
-kwargs = {"vmin":0,"vmax":3.5}
-
 for var in variables:
-    scale=1
-    fig,axs = plt.subplots(2,2,figsize=(12*scale,8*scale))
-    for i in range(4):
-        ax = axs[np.unravel_index(i,(2,2))]
-        seasons[var].isel(season=i).plot(ax=ax, **kwargs)
-        season_str = str(seasons[var].isel(season=i).season.values)
-        ax.set_title(f"{var} {season_str}")
-
-    plt.tight_layout()
-    fig.savefig(f"{var}_season_spatial.png")
+    seasonal_da = seasons[var]
+    plot_seasonal_spatial_means(seasonal_da, **kwargs)
+    fig.savefig(f"figs/{var}_season_spatial2.png")
 
 #%%
 # ------------------------------------------------------------------------------
-# Differences
+# Differences between products
 # ------------------------------------------------------------------------------
 import itertools
 variables = [
@@ -79,43 +73,74 @@ variables = [
  'modis_evapotranspiration',
 ]
 comparisons = [i for i in itertools.combinations(variables,2)]
+cmprson = comparisons[0]
 
 # mean differences (spatial)
 # ----------------
+from plotting.plots import plot_mean_spatial_differences_ET
+
 kwargs = {'vmin':-1.5,'vmax':1.5}
-fig,axs = plt.subplots(1,3, figsize=(15,12))
-
-for i, cmprson in enumerate(comparisons):
-    ax = axs[i]
-    diff = ds[cmprson[0]] - ds[cmprson[1]]
-    if i!=3:
-        diff.mean(dim='time').plot(ax=ax, **kwargs, add_colorbar=False)
-    else:
-        diff.mean(dim='time').plot(ax=ax, **kwargs)
-    ax.set_title(f"{cmprson[0].split('_')[0]} - {cmprson[1].split('_')[0]} Temporal Mean")
-    ax.set_xlabel('')
-    ax.set_ylabel('')
-
-fig.suptitle('Comparison of Spatial Means Between Products')
-fig.savefig(f"product_comparison_spatial_means.png")
+fig = plot_mean_spatial_differences_ET(ds, **kwargs)
+fig.savefig(f"figs/product_comparison_spatial_means.png")
 
 # differences by season
 # ---------------------
 seasons = ds.groupby('time.season').mean(dim='time')
 
+
+def compute_difference(ds, cmprson1, cmprson2):
+    ds_diff = ds[cmprson1] - ds[cmprson2]
+    return ds_diff
+
+
+
+def plot_seasonal_comparisons_ET_diff(seasonal_ds, **kwargs):
+    """ """
+    assert 'season' in [key for key in seasonal_ds.coords.keys()], f"'season' should be a coordinate in the seasonal_da object for using this plotting functionality. \n Currently: {[key for key in seasonal_ds.coords.keys()]}"
+    assert isinstance(seasonal_ds, xr.Dataset), f"seasonal_ds should be of type: xr.Dataset. Currently: {type(seasonal_da)}"
+
+    fig, axs = plt.subplots(2,6, figsize=(15,12))
+    # NOTE: hardcoding the axes indexes because haven't figured out the logic
+    axes_ix = [(0,0),(0,1),(1,0),(1,1),(0,2),(0,3),(1,2),(1,3),(0,4),(0,5),(1,4),(1,5)]
+
+    ix_counter = 0
+
+    _, comparisons = get_variables_for_comparison1()
+    for i, cmprson in enumerate(comparisons):
+        # for each comparison calculate the SEASONAL difference
+        seas_diff = compute_difference(seasons, cmprson[0], cmprson[1])
+        # plot each season
+        for j in range(4):
+            # get the correct axis to plot on
+            ax_ix = axes_ix[ix_counter]
+            ax = axs[ax_ix]
+            ix_counter += 1
+
+            # extract just ONE seasons data to plot
+            da = seas_diff.isel(season=i)
+            # plot the seasonal mean
+            plot_mean_time(da, ax, add_colorbar=False, **kwargs)
+            # get the name of that season
+            season_str = str(seas_diff.isel(season=j).season.values)
+
+            # set axes options
+            ax.set_title(f"{cmprson[0].split('_')[0]} - {cmprson[1].split('_')[0]} {season_str}")
+            ax.set_xlabel('')
+            ax.set_ylabel('')
+
+    plt.tight_layout()
+
+    return fig
+
 kwargs = {'vmin':-1.5,'vmax':1.5}
-fig, axs = plt.subplots(2,6, figsize=(15,12))
+plot_seasonal_comparisons_ET_diff(seasonal_ds, **kwargs)
+fig.savefig('figs/seasonal_differences_comparison_plot.png')
 
-# get the axes indexes upfront
-row_s = [0,1]; col_s = [0,1,2,3,4,5];
-axes_ix = [i for i in itertools.product(row_s,col_s)]; axes.sort(key=lambda x: x[1])
-axes_ix = [(0,0),(0,1),(1,0),(1,1),(0,2),(0,3),(1,2),(1,3),(0,4),(0,5),(1,4),(1,5)]
 
-ix_counter = 0
+
 for i, cmprson in enumerate(comparisons):
     # for each comparison calculate the SEASONAL difference
     seas_diff = seasons[cmprson[0]] - seasons[cmprson[1]]
-    if i != 0: ix_counter += 1
     # select each season from seasonal difference to plot
     for j in range(4):
         # get the correct axes index
@@ -150,6 +175,7 @@ nonan_m = drop_nans_and_flatten(m)
 
 da1 = h
 da2 = g
+
 
 def plot_hexbin_comparisons(da1, da2, bins=None, mincnt=0.5, title_extra=None):
     """
@@ -205,6 +231,7 @@ plot_hexbin_comparisons(g, m, mincnt=5)
 
 
 
+from scipy import stats
 
 def plot_joint_plot(da1, da2, col1, col2, bins='log', xlabel='da1', ylabel='da2', mincnt=0.5):
     """
@@ -221,12 +248,14 @@ def plot_joint_plot(da1, da2, col1, col2, bins='log', xlabel='da1', ylabel='da2'
     """
     g = sns.JointGrid(x=da1, y=da2)
     g.plot_joint(plt.hexbin, bins='log', mincnt=mincnt) #plt.scatter) # color="m", edgecolor="white")
+    g.annotate(stats.pearsonr)
     ax = g.ax_joint
     ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
 
-    assert False, "number of bins!"
-    _ = g.ax_marg_x.hist(da1, color=col1, alpha=.6,)
-    _ = g.ax_marg_y.hist(da2, color=col2, alpha=.6, orientation="horizontal",)
+    # assert False, "number of bins!"
+    # n_bins = int(len(da1) / 1000)
+    _ = g.ax_marg_x.hist(da1, color=col1, alpha=.6) # ,bins=n_bins)
+    _ = g.ax_marg_y.hist(da2, color=col2, alpha=.6, orientation="horizontal") # ,bins=n_bins)
 
     g.ax_joint.set_xlabel(xlabel)
     g.ax_joint.set_ylabel(ylabel)
@@ -238,39 +267,10 @@ def plot_joint_plot(da1, da2, col1, col2, bins='log', xlabel='da1', ylabel='da2'
     return g
 
 
-
-h_col = sns.color_palette()[0]
-m_col = sns.color_palette()[1]
-g_col = sns.color_palette()[2]
-
-da1 = drop_nans_and_flatten(h)
-da2 = drop_nans_and_flatten(g)
-
-
-def create_flattened_dataframe_of_values(h,g,m):
-    """ """
-    h_ = drop_nans_and_flatten(h)
-    g_ = drop_nans_and_flatten(g)
-    m_ = drop_nans_and_flatten(m)
-    df = pd.DataFrame(dict(
-            holaps=h_,
-            gleam=g_,
-            modis=m_
-        ))
-    return df
-
-
-d1 = np.random.normal(10,1,100)
-# d2 = np.random.randn(10,1,100)
-d2 = np.random.gamma(1,2,100)
-col1 = sns.color_palette()[0]
-col2 = sns.color_palette()[1]
-col3 = sns.color_palette()[2]
-
-
 def hexbin_jointplot_sns(d1, d2, col1, col2, bins='log'):
     """ """
-    jp = sns.jointplot(d1, d2, kind="hex", annot_kws=dict(stat="r"), joint_kws=dict(bins=bins))
+    jp = sns.jointplot(d1, d2, kind="hex", joint_kws=dict(bins=bins))
+    jp.annotate(stats.pearsonr)
 
     # plot the 1:1 line
     ax = jp.ax_joint
@@ -286,6 +286,44 @@ def hexbin_jointplot_sns(d1, d2, col1, col2, bins='log'):
     return jp
 
 
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+
+da1 = drop_nans_and_flatten(h)
+da2 = drop_nans_and_flatten(g)
+
+
+plot_joint_plot(da1,da2,col1,col2)
+
+hexbin_jointplot_sns(da1, da2, col1, col2, bins='log')
+
+def create_flattened_dataframe_of_values(h,g,m):
+    """ """
+    h_ = drop_nans_and_flatten(h)
+    g_ = drop_nans_and_flatten(g)
+    m_ = drop_nans_and_flatten(m)
+    df = pd.DataFrame(dict(
+            holaps=h_,
+            gleam=g_,
+            modis=m_
+        ))
+    return df
+
+dist_df = create_flattened_dataframe_of_values(h,g,m)
+jp = sns.jointplot('holaps', 'gleam', data=dist_df, kind="hex", annot_kws=dict(stat="r"), joint_kws=dict(bins=bins))
+jp.annotate(stats.pearsonr)
+
+d1 = np.random.normal(10,1,100)
+# d2 = np.random.randn(10,1,100)
+d2 = np.random.gamma(1,2,100)
+col1 = sns.color_palette()[0]
+col2 = sns.color_palette()[1]
+col3 = sns.color_palette()[2]
+
+
+
+hexbin_jointplot_sns(d1, d2, col1, col2, bins='log')
 
 
 
