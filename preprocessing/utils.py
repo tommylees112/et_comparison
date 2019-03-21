@@ -223,7 +223,7 @@ def save_netcdf(xr_obj, filepath, force=False):
     return
 
 
-def get_all_valid(ds, holaps_da, modis_da, gleam_da, chirps_da):
+def get_all_valid(ds, holaps_da, modis_da, gleam_da):
     """ Return only values for pixels/times where ALL PRODUCTS ARE VALID """
     valid_mask = (
     holaps_da.notnull()
@@ -233,6 +233,7 @@ def get_all_valid(ds, holaps_da, modis_da, gleam_da, chirps_da):
     ds_valid = ds.where(valid_mask)
 
     return ds_valid
+
 
 def drop_nans_and_flatten(dataArray):
     """flatten the array and drop nans from that array. Useful for plotting histograms.
