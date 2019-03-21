@@ -204,6 +204,120 @@ plot_hexbin_comparisons(h, m, mincnt=5)
 plot_hexbin_comparisons(g, m, mincnt=5)
 
 
+
+
+def plot_joint_plot(da1, da2, col1, col2, bins='log', xlabel='da1', ylabel='da2', mincnt=0.5):
+    """
+    Arguments:
+    ---------
+    : da1 (np.ndarray)
+        numpy array of data (should be same lengths!)
+    : da2 (np.ndarray)
+        numpy array of data (should be same lengths!)
+    : col1 (tuple)
+        seaborn color code as tuple (rgba)
+    : col2 (tuple)
+        seaborn color code as tuple (rgba)
+    """
+    g = sns.JointGrid(x=da1, y=da2)
+    g.plot_joint(plt.hexbin, bins='log', mincnt=mincnt) #plt.scatter) # color="m", edgecolor="white")
+    ax = g.ax_joint
+    ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+
+    assert False, "number of bins!"
+    _ = g.ax_marg_x.hist(da1, color=col1, alpha=.6,)
+    _ = g.ax_marg_y.hist(da2, color=col2, alpha=.6, orientation="horizontal",)
+
+    g.ax_joint.set_xlabel(xlabel)
+    g.ax_joint.set_ylabel(ylabel)
+
+    g = g.annotate(pearsonr)
+
+    # g.plot(sns.regplot, sns.distplot)
+    # sns.jointplot(da1, da2, kind="hex", annot_kws=dict(stat="r"))
+    return g
+
+
+
+h_col = sns.color_palette()[0]
+m_col = sns.color_palette()[1]
+g_col = sns.color_palette()[2]
+
+da1 = drop_nans_and_flatten(h)
+da2 = drop_nans_and_flatten(g)
+
+
+def create_flattened_dataframe_of_values(h,g,m):
+    """ """
+    h_ = drop_nans_and_flatten(h)
+    g_ = drop_nans_and_flatten(g)
+    m_ = drop_nans_and_flatten(m)
+    df = pd.DataFrame(dict(
+            holaps=h_,
+            gleam=g_,
+            modis=m_
+        ))
+    return df
+
+
+d1 = np.random.normal(10,1,100)
+# d2 = np.random.randn(10,1,100)
+d2 = np.random.gamma(1,2,100)
+col1 = sns.color_palette()[0]
+col2 = sns.color_palette()[1]
+col3 = sns.color_palette()[2]
+
+
+def hexbin_jointplot_sns(d1, d2, col1, col2, bins='log'):
+    """ """
+    jp = sns.jointplot(d1, d2, kind="hex", annot_kws=dict(stat="r"), joint_kws=dict(bins=bins))
+
+    # plot the 1:1 line
+    ax = jp.ax_joint
+    ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+
+    # color the marginal distributions separately
+    for patch in jp.ax_marg_x.patches:
+        patch.set_facecolor(col1)
+
+    for patch in jp.ax_marg_y.patches:
+        patch.set_facecolor(col2)
+
+    return jp
+
+
+
+
+
+# create data_frame from flattened arrays
+pd.DataFrame({'holaps':})
+col1, col2 = h_col, g_col
+
+plot_joint_plot(da1, da2, col1, col2, xlabel='holaps', ylabel='gleam')
+
+# def plot_seaborn_joint_hex(da1, da2)
+
+
+
+
+
+jp = sns.jointplot(d1, d2, kind="hex", annot_kws=dict(stat="r"), joint_kws=dict(bins='log'))
+ax = jp.ax_joint
+ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+
+jp = sns.jointplot(d1, d2, kind="hex", annot_kws=dict(stat="r"), joint_kws=dict(bins='log'), marginal_kws=dict(hist_kws= {'color': col2}))
+ax = jp.ax_joint
+ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3", label="1:1")
+jp.ax_marg_x.set_facecolor(col1)
+jp.ax_marg_y.set_facecolor(col3)
+
+# https://seaborn.pydata.org/generated/seaborn.jointplot.html?highlight=jointplot#seaborn.jointplot
+>>> g = sns.jointplot("petal_length", "sepal_length", data=iris,
+...                   marginal_kws=dict(bins=15, rug=True),
+...                   annot_kws=dict(stat="r"),
+...                   s=40, edgecolor="w", linewidth=1)
+
+
 #%%
 # ------------------------------------------------------------------------------
 # Subset by regions
@@ -298,9 +412,80 @@ plot_all_spatial_means(ds_vic, 'victoria_region')
 # Work with ESA CCI Landcover data
 # https://annefou.github.io/metos_python/07-LargeFiles/
 # ------------------------------------------------------------------------------
+lc_legend = pd.read_csv('/soge-home/projects/crop_yield/EGU_compare/ESACCI-LC-Legend.csv',sep=';')
+lc = xr.open_dataset('ESACCI-LC-L4-LCCS-Map-300m-P5Y-2005-v1.6.1.nc', chunks={'lat': 1000,'lon': 1000})
 
-ds = xr.open_dataset('ESACCI-LC-L4-LCCS-Map-300m-P5Y-2005-v1.6.1.nc', chunks={'lat': 1000,'lon': 1000})
 
+# create lookup dictionary from pd.DataFrame
+lookup = lc_legend[['NB_LAB','LCCOwnLabel']]
+lookup = dict(zip(lookup.iloc[:,0], lookup.iloc[:,1]))
+
+
+def replace_with_dict(ar, dic):
+    """https://stackoverflow.com/a/47171600/9940782"""
+    # Extract out keys and values
+    k = np.array(list(dic.keys()))
+    v = np.array(list(dic.values()))
+
+    # Get argsort indices
+    sidx = k.argsort()
+
+    # Drop the magic bomb with searchsorted to get the corresponding
+    # places for a in keys (using sorter since a is not necessarily sorted).
+    # Then trace it back to original order with indexing into sidx
+    # Finally index into values for desired output.
+    # NOTE: something going wrong with the number for the indices (0 based vs. 1 based)
+    return v[sidx[ np.searchsorted(k, ar, sorter=sidx) -1 ] ]
+
+
+
+def replace_with_dict2(ar, dic):
+    """https://stackoverflow.com/a/47171600/9940782"""
+    # Extract out keys and values
+    k = np.array(list(dic.keys()))
+    v = np.array(list(dic.values()))
+
+    # Get argsort indices
+    sidx = k.argsort()
+
+    ks = k[sidx]
+    vs = v[sidx]
+    warning.warn('We are taking one from the index. need to check this is true!!!')
+    return vs[np.searchsorted(ks,ar) -1 ]
+
+
+
+def get_lookup_val(xr_obj, variable, new_variable, lookup_dict):
+    """
+    Arguments:
+    ---------
+    :xr_obj
+    """
+    dic = lookup_dict
+    # get the values as a numpy array
+    if isinstance(xr_obj, xr.Dataset):
+        ar = xr_obj[variable].values
+    elif isinstance(xr_obj, xr.DataArray):
+        ar = xr_obj.values
+    else:
+        assert False, f"This function only works with xarray objects. Currently xr_obj is type: {type(xr_obj)}"
+
+    assert isinstance(ar, np.ndarray), f"ar should be a numpy array!"
+    assert isinstance(dic, dict), f"dic should be a dictionary object!"
+    new_ar = replace_with_dict2(ar, dic)
+    xr_obj[new_variable] = new_ar
+
+
+    return xr_obj
+
+
+abc_array = lc.esa_cci_landcover.values
+sort_idx = np.argsort(lookup.keys())
+idx = np.searchsorted(lookup.keys(),abc_array) #,sorter = sort_idx)
+out = np.asarray(lookup.values())[sort_idx][idx]
+
+
+.apply(lambda x : str(lc_legend.LCCOwnLabel.loc[lc_legend.NB_LAB == x.esa_cci_landcover].values[0])
 
 #%%
 # ------------------------------------------------------------------------------

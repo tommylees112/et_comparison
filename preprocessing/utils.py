@@ -246,3 +246,16 @@ def drop_nans_and_flatten(dataArray):
     return dataArray.values[~np.isnan(dataArray.values)]
 
 #
+
+#
+# def create_flattened_dataframe_of_values(h,g,m):
+#     """ """
+#     h_ = drop_nans_and_flatten(h)
+#     g_ = drop_nans_and_flatten(g)
+#     m_ = drop_nans_and_flatten(m)
+#     df = pd.DataFrame(dict(
+#             holaps=h_,
+#             gleam=g_,
+#             modis=m_
+#         ))
+#     return df

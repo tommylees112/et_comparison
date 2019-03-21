@@ -30,6 +30,8 @@ h = ds.holaps_evapotranspiration.copy()
 m = ds.modis_evapotranspiration.copy()
 g = ds.gleam_evapotranspiration.copy()
 
+lc = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/esa_lc_EA_clean.nc")
+
 df = ds.to_dataframe()
 seasons = ds.groupby('time.season').mean(dim='time')
 
@@ -43,3 +45,24 @@ nonan_m = drop_nans_and_flatten(m)
 h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
+
+lonmin=32.6
+lonmax=51.8
+latmin=-5.0
+latmax=15.2
+
+
+def create_flattened_dataframe_of_values(h,g,m):
+    """ """
+    h_ = drop_nans_and_flatten(h)
+    g_ = drop_nans_and_flatten(g)
+    m_ = drop_nans_and_flatten(m)
+    df = pd.DataFrame(dict(
+            holaps=h_,
+            gleam=g_,
+            modis=m_
+        ))
+    return df
+
+
+dist_df = create_flattened_dataframe_of_values(h,g,m)
