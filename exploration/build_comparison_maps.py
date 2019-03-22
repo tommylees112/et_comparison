@@ -7,10 +7,12 @@ import seaborn as sns
 import xesmf as xe # for regridding
 from scipy.stats import pearsonr
 from scipy import stats
+import geopandas as gpd
 
 import itertools
 import warnings
 import os
+from pathlib import Path
 
 %matplotlib
 %load_ext autoreload
@@ -18,6 +20,17 @@ import os
 from preprocessing.utils import *
 
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+
+
+BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
+#%%
+# ------------------------------------------------------------------------------
+# Working with FLOW data
+# ------------------------------------------------------------------------------
+
+gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+# pd.read_csv('')
+
 
 #%%
 # ------------------------------------------------------------------------------
@@ -328,9 +341,6 @@ for i, var in enumerate(variables):
 # ------------------------------------------------------------------------------
 
 
-
-
-
 def get_unmasked_data(dataArray, dataMask):
     """ get the data INSIDE the dataMask
     Keep values if True, remove values if False
@@ -346,17 +356,8 @@ c_col = sns.color_palette()[3]
 colors = [h_col, m_col, g_col]
 
 
-
-def plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim, xlim):
-    """ do the processing of the axes and plotting of the conditional distribution
-    (conditional on being inside a topographic range)
-    """
-    ax_hist.set_ylim(ylim)
-    ax_hist.set_xlim(xlim)
-    plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataset)
-    return
-
-
+# from engineering.eng_utils import get_unmasked_data
+# from plotting.plots import plot_marginal_distribution, plot_masked_spatial_and_hist
 
 
 def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
@@ -378,10 +379,10 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
     for j, DataArray in enumerate(DataArrays):
         if 'time' in DataArray.dims:
             # if time variable e.g. Evapotranspiration
-            DataArray = get_unmasked_data(DataArray.mean(dim='time'), dataMask)
+            dataArray = get_unmasked_data(DataArray.mean(dim='time'), dataMask)
         else:
             # if time constant e.g. landcover
-            DataArray = get_unmasked_data(DataArray, dataMask)
+            dataArray = get_unmasked_data(DataArray, dataMask)
 
         # get the axes for the spatial plots and the histograms
         ax_map = axs[0,j]
@@ -390,15 +391,20 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
         title = titles[j]
 
         ax_map.set_title(f'{dataset} Evapotranspiration')
+        ylim = [0,1.1]; xlim = [0,7]
+        ax_hist.set_ylim(ylim)
+        ax_hist.set_xlim(xlim)
+
         # plot the map
         plot_mean_time(dataArray, ax_map, add_colorbar=True, **kwargs)
         # plot the histogram
-        plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim=[0,1.1],xlim=[0,7])
+        plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataset)
+        plot_masked_histogram(ax_hist, dataArray, color, dataset)
 
     return fig
 
 
-topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')
+topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
 
 # ------------------------------------------------------------------------------
 # plot topo histogram
@@ -409,15 +415,15 @@ fig.savefig('figs/topo_histogram.png')
 
 # plot topo_histogram with quintiles
 # get the qunitile values
-qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
 fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
+
+# create and plot the qunitiles
+qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
 [ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
+
 fig.savefig('figs/topo_histogram_quintiles.png')
 
 # convert to dataset
-topo = topo.to_dataset(name='elevation')
-
-interval_ranges = [(interval.left, interval.right) for interval in intervals]
 
 # TEST THIS!!!!
 
@@ -440,8 +446,8 @@ def bin_dataset(ds, group_var, n_bins):
           intervals[0][0] = right edge
          )
     """
-    bins = ds.groupby_bins(group=group_var,bins=10)
-    assert False, "hardcoding the elevation_bins here need to do this dynamically"
+    bins = ds.groupby_bins(group=group_var,bins=n_bins)
+    # assert False, "hardcoding the elevation_bins here need to do this dynamically"
     binned_var = [var for var in bins.variables.keys() if "_bins" in var]
     assert len(binned_var) == 1, "The binned Var should only be one variable!"
     binned_var = binned_var[0]
@@ -461,8 +467,14 @@ def bin_dataset(ds, group_var, n_bins):
     return ds_bins, intervals
 
 # ----------------------------------------------------
+# TOPO CLEANING
+# ----------------------------------------------------
 # CLEAN CODE:
+if not isinstance(topo, xr.Dataset):
+    topo = topo.to_dataset(name='elevation')
+
 topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
+interval_ranges = [(interval.left, interval.right) for interval in intervals]
 
 # repeat for 60 timesteps (TO BE USED AS `ds` mask)
 topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
@@ -502,7 +514,7 @@ for i in range(10):
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
     # fig.savefig(f'figs/elevation_bin{i}.png')
-    # ----------------------------------------------------
+# ----------------------------------------------------
 
 
 

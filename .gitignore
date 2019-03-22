@@ -16,3 +16,5 @@ figs/*.png
 *.nc
 */__pycache__
 __pycache__
+
+docs/*

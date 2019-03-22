@@ -6,7 +6,19 @@ import os
 
 
 # ------------------------------------------------------------------------------
-# Collapsing Time Dimensions 
+# Working with Masks (subsets of your data)
+# ------------------------------------------------------------------------------
+
+def get_unmasked_data(dataArray, dataMask):
+    """ get the data INSIDE the dataMask
+    Keep values if True, remove values if False
+     (doing the opposite of a 'mask' - perhaps should rename)
+    """
+    return dataArray.where(dataMask)
+
+
+# ------------------------------------------------------------------------------
+# Collapsing Time Dimensions
 # ------------------------------------------------------------------------------
 
 

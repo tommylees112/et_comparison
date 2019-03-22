@@ -24,6 +24,9 @@ from preprocessing.utils import drop_nans_and_flatten
 # from preprocessing.gleam_cleaner import GleamCleaner
 # from preprocessing.modis_cleaner import ModisCleaner
 
+BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
+BASE_DIR = Path('/soge-home/projects/crop_yield/et_comparison')
+
 # clean data
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 h = ds.holaps_evapotranspiration.copy()
@@ -67,4 +70,4 @@ def create_flattened_dataframe_of_values(h,g,m):
 
 dist_df = create_flattened_dataframe_of_values(h,g,m)
 
-topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')
+topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
