@@ -36,7 +36,7 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
     """ """
     # if no ax create one
     if ax is None:
-        fig,ax = plt.subplots(figsize=(12,8))
+        fig, ax = plt.subplots(figsize=(12,8))
 
     # flatten the DataArray
     da_flat = drop_nans_and_flatten(DataArray)
@@ -55,7 +55,10 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
 
     ax.set_xlabel(xlabel)
 
-    return fig, ax
+    if ax is None:
+        return fig, ax
+    else:
+        return ax
 
 
 # ------------------------------------------------------------------------------

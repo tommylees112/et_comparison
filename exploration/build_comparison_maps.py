@@ -398,8 +398,6 @@ from engineering.eng_utils import get_unmasked_data
 from plotting.plots import plot_marginal_distribution, plot_mean_time
 from plotting.plots import plot_masked_spatial_and_hist
 
-
-
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
 
 # ------------------------------------------------------------------------------
