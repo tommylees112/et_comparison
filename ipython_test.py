@@ -12,6 +12,8 @@ import itertools
 import warnings
 import os
 
+import cartopy
+from shapely import geometry
 
 import sys
 sys.path.insert(0, "/soge-home/projects/crop_yield/et_comparison/")
