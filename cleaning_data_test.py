@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import xesmf as xe # for regridding
+from shapely import geometry
+import geopandas as gpd
+
 
 import warnings
 import os

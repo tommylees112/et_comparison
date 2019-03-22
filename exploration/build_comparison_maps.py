@@ -27,8 +27,42 @@ BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 # ------------------------------------------------------------------------------
 # Working with FLOW data
 # ------------------------------------------------------------------------------
+from shapely import geometry
+import geopandas as gpd
 
-gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+
+def read_csv_point_data(df, lat_col='lat', lon_col='lon', crs='epsg:4326'):
+    """Read in a csv file with lat,lon values in a column and turn those lat lon
+        values into geometry.Point objects.
+    Arguments:
+    ---------
+    : df (pd.DataFrame)
+    : lat_col (str)
+        the column in the dataframe that has the point latitude information
+    : lon_col (str)
+        the column in the dataframe that has the point longitude information
+    : crs (str)
+        coordinate reference system (defaults to 'epsg:4326')
+    Returns:
+    -------
+    : gdf (gpd.GeoDataFrame)
+        a geopandas.GeoDataFrame object
+    """
+    df['geometry'] = [geometry.Point(y, x) \
+                      for x, y in zip(df[lat_col],
+                                      df[lon_col])
+                    ]
+    crs = {'init': crs}
+    gdf = gpd.GeoDataFrame(df, crs=crs, geometry="geometry")
+    return gdf
+
+
+# gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
+
+
+
 # pd.read_csv('')
 
 
@@ -423,10 +457,41 @@ qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
 
 fig.savefig('figs/topo_histogram_quintiles.png')
 
+
 # convert to dataset
+def create_new_binned_dimensions(ds, group_var, intervals):
+    """ Get the values in `ds` for `group_var` WITHIN the `interval` ranges.
+         Return a new xr.Dataset with a new set of variables called `{group_var}_bins`.
+
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+        the dataset in which we are finding the values that lie within an interval
+         range.
+    : group_var (str)
+        the variable that we are trying to bin
+    : intervals (list, np.ndarray)
+        list of `pandas._libs.interval.Interval` with methods `interval.left`
+         and `interval.right` for extracting the values that fall within that
+         range.
+
+    Returns:
+    -------
+    : ds_bins (xr.Dataset)
+        dataset with new `Variables` one for each bin. Pixels outside of the
+         interval range are masked with np.nan
+    """
+    ds_bins = xr.concat([ds.where(
+                             (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
+                           )
+                    for interval in intervals
+                   ]
+    )
+    ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
+    return ds_bins
+
 
 # TEST THIS!!!!
-
 def bin_dataset(ds, group_var, n_bins):
     """
     Arguments:
@@ -446,23 +511,25 @@ def bin_dataset(ds, group_var, n_bins):
           intervals[0][0] = right edge
          )
     """
-    bins = ds.groupby_bins(group=group_var,bins=n_bins)
+    # groupby and collaps to the MID ELEVATION for the values (allows us to extract )
+    bins = ds.groupby_bins(group=group_var,bins=n_bins).mean()
     # assert False, "hardcoding the elevation_bins here need to do this dynamically"
-    binned_var = [var for var in bins.variables.keys() if "_bins" in var]
+    binned_var = [key for key in bins.coords.keys()]
     assert len(binned_var) == 1, "The binned Var should only be one variable!"
     binned_var = binned_var[0]
 
     # extract the bin locations
-    intervals = bins.mean()[binned_var].values
+    intervals = bins[binned_var].values
     left_bins = [interval.left for interval in intervals]
     # use bin locations to create mask variables of those values inside that
-    ds_bins = xr.concat([ds.where(
-                                 (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
-                               )
-                        for interval in intervals
-                       ]
-    )
-    ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
+    ds_bins = create_new_binned_dimensions(ds, group_var, intervals)
+    # ds_bins = xr.concat([ds.where(
+    #                              (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
+    #                            )
+    #                     for interval in intervals
+    #                    ]
+    # )
+    # ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
 
     return ds_bins, intervals
 
@@ -750,11 +817,13 @@ fig = plot_normalised_seasonality(seasonality)
 fig.savefig('figs/spatial_mean_seasonality_normed.png')
 
 
-
 #%%
 # ------------------------------------------------------------------------------
 # Analysis by Elevation: group by elevation
 # ------------------------------------------------------------------------------
+
+
+
 
 # ------------------------------------------------------------------------------
 # USING BASEMAP (depreceated code)
