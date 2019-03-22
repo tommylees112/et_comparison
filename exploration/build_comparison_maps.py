@@ -35,7 +35,6 @@ from engineering.regions import regions
 all_region = regions[0]
 highlands = regions[1]
 
-
 # gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
@@ -52,6 +51,29 @@ df['DATE'] = pd.to_datetime(df.DATE)
 
 #%%
 # ------------------------------------------------------------------------------
+# Subset by River Basins (or any other shapefile)
+# http://www.fao.org/geonetwork/srv/en/metadata.show?id=30915&currTab=simple
+# ------------------------------------------------------------------------------
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+
+base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
+river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
+
+river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
+all_basins = np.unique(river_ds.river_basins)[~np.isnan(np.unique(river_ds.river_basins))]
+
+# first 2 digits are significant! (drop the first one (-0.))
+bsns = np.unique(all_basins // 100)[1:]
+lkup = dict(zip(all_basins ,(all_basins // 100)))
+
+
+# >>>>>>>>>>>>>>>>>>>
+assert False, "Need to get a dictionary to lookup the values of the river_basins variable in river_ds"
+# <<<<<<<<<<<<<<<<<<<
+
+
+#%%
+# ------------------------------------------------------------------------------
 # Working with RAW DATA
 # ------------------------------------------------------------------------------
 
@@ -59,14 +81,14 @@ df['DATE'] = pd.to_datetime(df.DATE)
 from preprocessing.holaps_cleaner import HolapsCleaner
 from preprocessing.gleam_cleaner import GleamCleaner
 from preprocessing.modis_cleaner import ModisCleaner
-#
+
 # h = HolapsCleaner()
 # h.preprocess()
 # g = GleamCleaner()
 # g.preprocess()
 # m = ModisCleaner()
 # m.preprocess()
-#
+
 
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
 
@@ -247,21 +269,6 @@ assert False, "TEST ME GODDAMIT"
 lc_2 = get_lookup_val(xr_obj, variable, new_variable, lookup_dict)
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-#%%
-# ------------------------------------------------------------------------------
-# Subset by River Basins (or any other shapefile)
-# http://www.fao.org/geonetwork/srv/en/metadata.show?id=30915&currTab=simple
-# ------------------------------------------------------------------------------
-from engineering.mask_using_shapefile import add_shape_coord_from_data_array
-
-base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
-river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
-
-river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
-
-# >>>>>>>>>>>>>>>>>>>
-assert False, "Need to get a dictionary to lookup the values of the river_basins variable in river_ds"
-# <<<<<<<<<<<<<<<<<<<
 
 #%%
 # ------------------------------------------------------------------------------
