@@ -64,6 +64,7 @@ lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
 
 
+points = lookup_gdf.geometry.values
 ax.scatter([point.x for point in points],
            [point.y for point in points],
            transform=ccrs.Geodetic())
@@ -385,7 +386,6 @@ for i, var in enumerate(variables):
 # PLOT segmented map AND histograms (TOPO)
 # ------------------------------------------------------------------------------
 
-
 h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
@@ -564,49 +564,23 @@ for i in range(10):
 import cartopy
 import cartopy.feature as cpf
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-import cartopy.io.img_tiles as cimgt
 
-import matplotlib.patches as mpatches
+
+# import cartopy.io.img_tiles as cimgt
+
+# import matplotlib.patches as mpatches
 from shapely.geometry.polygon import LinearRing
 
 
-
-
 from engineering.regions import regions
+from plotting.plots import plot_geog_location
 
-
-
-def plot_geog_location(region):
-    """ use cartopy to plot the region (defined as a namedtuple object)"""
-    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
-    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
-    ax.add_feature(cpf.COASTLINE)
-    ax.add_feature(cpf.BORDERS, linestyle=':')
-    ax.add_feature(cpf.LAKES)
-    ax.set_extent([lonmin, lonmax, latmin, latmax])
-
-    # plot the lat lon labels
-    # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
-    # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
-    xticks = np.linspace(lonmin, lonmax, 5)
-    yticks = np.linspace(latmin, latmax, 5)
-
-    ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
-    ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
-    lon_formatter = LongitudeFormatter(zero_direction_label=True)
-    lat_formatter = LatitudeFormatter()
-    ax.xaxis.set_major_formatter(lon_formatter)
-    ax.yaxis.set_major_formatter(lat_formatter)
-
-    fig = plt.gcf()
-
-    return fig
 
 
 def plot_all_regions(regions):
     """ """
     for region in regions:
-        fig = plot_geog_location(region)
+        fig = plot_geog_location(region, rivers=True, borders=True)
         plt.gca().set_title(region.name)
         fig.savefig(f'figs/{region.name}.png')
 
@@ -614,7 +588,7 @@ def plot_all_regions(regions):
 
 # GET THIS TO WORK
 #
-def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
+def plot_polygon(ax, sub_region):
     """
     Note:
     ----
@@ -625,16 +599,44 @@ def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
         1 -- 4
     """
     # ax = fig.axes[0]
-    lons = [latmin, latmin, latmax, latmax]
-    lats = [lonmin, lonmax, lonmax, lonmin]
+    lons = [sub_region.latmin, sub_region.latmin, sub_region.latmax, sub_region.latmax]
+    lats = [sub_region.lonmin, sub_region.lonmax, sub_region.lonmax, sub_region.lonmin]
     ring = LinearRing(list(zip(lons, lats)))
-    ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
+    ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='b', edgecolor='black')
 
 
-    return fig
-#
+    return fig, ax
 
 
+def add_points_to_map(ax, geodf):
+    """ Add the point data stored in `geodf.geometry` as points to ax
+    Arguments:
+    ---------
+    : geodf (geopandas.GeoDataFrame)
+        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+    """
+    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
+    points = geodf.geometry.values
+    ax.scatter([point.x for point in points],
+           [point.y for point in points],
+           transform=ccrs.PlateCarree())
+
+    return ax
+
+# CLEAN CODE
+all_region = regions[0]
+highlands = regions[1]
+
+from plotting.plots import plot_stations_on_region_map, add_points_to_map
+
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+region = highlands
+geom = geometry.box(minx=region.lonmin,maxx=region.lonmax,miny=region.latmin,maxy=region.latmax)
+ax.add_geometries(geom, crs=cartopy.crs.PlateCarree())
+
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+plot_polygon(ax, highlands)
 
 # ax.get_xlim(), ax.get_ylim()
 # cb = fig.colorbar(hb, ax=ax)
@@ -687,69 +689,18 @@ fig.savefig('figs/spatial_mean_timseries.png')
 # ------------------------------------------------------------------------------
 
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
+from engineering.eng_utils import create_double_year
+from plotting.plots import plot_seasonality
+from plotting.plots import plot_normalised_seasonality
 
 
-def calculate_monthly_mean(ds):
-    assert 'time' in [dim for dim in ds.dims.keys()], f"Time must be in the dataset dimensions. Currently: {[dim for dim in ds.dims.keys()]}"
-    return ds.groupby('time.month').mean(dim='time')
-
-
-def calculate_spatial_mean(ds):
-    assert ('lat' in [dim for dim in ds.dims.keys()]) & ('lon' in [dim for dim in ds.dims.keys()]), f"Must have 'lat' 'lon' in the dataset dimensisons"
-    return ds.mean(dim=['lat','lon'])
-
-
-mthly_ds = calculate_monthly_mean(ds)
-seasonality = calculate_spatial_mean(mthly_ds)
-
-
-def plot_seasonality(ds, ylabel=None):
-    """ """
-    mthly_ds = calculate_monthly_mean(ds)
-    seasonality = calculate_spatial_mean(mthly_ds)
-
-    fig, ax = plt.subplots(figsize=(12,8))
-    seasonality.to_dataframe().plot(ax=ax)
-    ax.set_title('Spatial Mean Seasonal Time Series')
-    plt.legend()
-
-    if ylabel not None:
-        ax.set_ylabel(ylabel)
-
-    return fig, ax
-
-fig,ax = plot_seasonality(ds)
+fig,ax = plot_seasonality(ds, double_year=True)
 ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
 fig.savefig('figs/spatial_mean_seasonality.png')
 
 
-
-# ------------------------------------------------------------------------------
-# Plot the NORMALISED Seasonality (% of the total)
-# ------------------------------------------------------------------------------
-
-def plot_normalised_seasonality(monthly_ds):
-    """ Normalise the seasonality by each months contribution to the annual mean total.
-
-    Arguments:
-    ---------
-    :monthly_ds (xr.Dataset)
-        the dataset that has been converted into monthly means
-    """
-    assert False, "How to extend the seasonality to two years to view the DJF period"
-    fig, ax = plt.subplots(figsize=(12,8))
-    norm_seasonality = monthly_ds.apply(lambda x: (x / x.sum(dim='month'))*100)
-    # convert to dataframe (useful for plotting values)
-    norm_seasonality.to_dataframe().plot(ax=ax)
-    ax.set_title('Normalised Seasonality')
-    ax.set_ylabel('Contribution of month to annual total (%)')
-    plt.legend()
-
-    return fig
-
-fig = plot_normalised_seasonality(seasonality)
+fig = plot_normalised_seasonality(ds, double_year=True)
 fig.savefig('figs/spatial_mean_seasonality_normed.png')
-
 
 #%%
 # ------------------------------------------------------------------------------

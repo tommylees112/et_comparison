@@ -108,6 +108,24 @@ def calculate_spatial_mean(ds):
     return ds.mean(dim=['lat','lon'])
 
 
+def create_double_year(seasonality):
+    """for seasonality data (values for each month) return a copy for a second
+        year to account for the cross-over between DJF
+
+    Returns:
+    -------
+    : (xr.Dataset)
+        a Dataset object with 24 months (2 annual cycles)
+    """
+    assert 'month' in [coord for coord in seasonality.coords.keys()], f"`month` must be a present coordinate in the seasonality data passed to the `create_double_year` function! Currently: {[coord for coord in seasonality.coords.keys()]}"
+
+    seas2 = seasonality.copy()
+    seas2['month'] = np.arange(13,25)
+
+    # merge the 2 datasets
+    return xr.merge([seasonality, seas2])
+
+
 # ------------------------------------------------------------------------------
 # Lookup values from xarray in a dict
 # ------------------------------------------------------------------------------

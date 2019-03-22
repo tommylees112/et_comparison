@@ -18,3 +18,4 @@ figs/*.png
 __pycache__
 
 docs/*
+*.zip

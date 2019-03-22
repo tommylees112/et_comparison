@@ -26,6 +26,8 @@ import os
 
 # Custom functions
 from engineering.eng_utils import drop_nans_and_flatten
+from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean, create_double_year
+
 
 # ------------------------------------------------------------------------------
 # Histograms (Marginal Distributions)
@@ -228,9 +230,162 @@ def plot_all_spatial_means(ds, area):
     return
 
 
+
+def get_river_features():
+    """ Get the 10m river features from NaturalEarth and turn into shapely.geom
+    Note: https://github.com/SciTools/cartopy/issues/945
+
+    """
+    shp_path = cartopy.io.shapereader.natural_earth(
+        resolution='10m',
+        category='physical',
+        name='rivers_lake_centerlines')
+
+    shp_contents = cartopy.io.shapereader.Reader(shp_path)
+    river_generator = shp_contents.geometries()
+    river_feature = cartopy.feature.ShapelyFeature(
+        river_generator,
+        cartopy.crs.PlateCarree(),
+        edgecolor=water_color,
+        facecolor='none')
+
+    return river_feature
+
+
+
+def plot_geog_location(region, lakes=False, borders=False, rivers=False):
+    """ use cartopy to plot the region (defined as a namedtuple object)
+
+    Arguments:
+    ---------
+    : region (Region namedtuple)
+        region of interest bounding box defined in engineering/regions.py
+    : lakes (bool)
+        show lake features
+    : borders (bool)
+        show lake features
+    : rivers (bool)
+        show river features (@10m scale from NaturalEarth)
+    """
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
+    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+    ax.add_feature(cpf.COASTLINE)
+    if borders:
+        ax.add_feature(cpf.BORDERS, linestyle=':')
+    if lakes:
+        ax.add_feature(cpf.LAKES)
+    if rivers:
+        # assert False, "Rivers are not yet working in this function"
+        water_color = '#3690f7'
+        river_feature = get_river_features()
+        ax.add_feature(river_feature)
+
+    ax.set_extent([lonmin, lonmax, latmin, latmax])
+
+    # plot the lat lon labels
+    # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
+    # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
+    xticks = np.linspace(lonmin, lonmax, 5)
+    yticks = np.linspace(latmin, latmax, 5)
+
+    ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
+    ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
+    lon_formatter = LongitudeFormatter(zero_direction_label=True)
+    lat_formatter = LatitudeFormatter()
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+
+    fig = plt.gcf()
+
+    return fig, ax
+
+
+def add_points_to_map(ax, geodf):
+    """ Add the point data stored in `geodf.geometry` as points to ax
+    Arguments:
+    ---------
+    : geodf (geopandas.GeoDataFrame)
+        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+    """
+    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
+    points = geodf.geometry.values
+    ax.scatter([point.x for point in points],
+               [point.y for point in points],
+               transform=ccrs.PlateCarree())
+
+    return ax
+
+
+def plot_stations_on_region_map(region, station_location_df):
+    """ Plot the station locations in `station_location_df` on a map of the region
+
+    Arguments:
+    ---------
+    : region (Region, namedtuple)
+    : station_location_df (geopandas.GeoDataFrame)
+        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
+
+    Returns:
+    -------
+    : fig (matplotlib.figure.Figure)
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+    """
+    fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True)
+    ax =  add_points_to_map(ax, station_location_df)
+
+    return fig, ax
+
+
+
 # ------------------------------------------------------------------------------
 # Temporal Plots
 # ------------------------------------------------------------------------------
+
+
+def plot_seasonality(ds, ylabel=None, double_year=False):
+    """ """
+    mthly_ds = calculate_monthly_mean(ds)
+    seasonality = calculate_spatial_mean(mthly_ds)
+
+    if double_year:
+        seasonality = create_double_year(seasonality)
+
+    fig, ax = plt.subplots(figsize=(12,8))
+    seasonality.to_dataframe().plot(ax=ax)
+    ax.set_title('Spatial Mean Seasonal Time Series')
+    plt.legend()
+
+    if ylabel != None:
+        ax.set_ylabel(ylabel)
+
+    return fig, ax
+
+
+def plot_normalised_seasonality(ds, double_year=False):
+    """ Normalise the seasonality by each months contribution to the annual mean total.
+
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+        the dataset to calculate the seasonality from
+    : double_year (bool)
+        if True then show two annual cycles to get a better picture of the
+         seasonality.
+    """
+    fig, ax = plt.subplots(figsize=(12,8))
+    mthly_ds = calculate_monthly_mean(ds)
+    norm_seasonality = monthly_ds.apply(lambda x: (x / x.sum(dim='month'))*100)
+
+    if double_year:
+        norm_seasonality = create_double_year(norm_seasonality)
+    # convert to dataframe (useful for plotting values)
+    norm_seasonality.to_dataframe().plot(ax=ax)
+    ax.set_title('Normalised Seasonality')
+    ax.set_ylabel('Contribution of month to annual total (%)')
+    plt.legend()
+
+    return fig
 
 
 
