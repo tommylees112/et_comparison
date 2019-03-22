@@ -31,6 +31,8 @@ from shapely import geometry
 import geopandas as gpd
 
 
+from preprocessing.utils read_csv_point_data
+
 def read_csv_point_data(df, lat_col='lat', lon_col='lon', crs='epsg:4326'):
     """Read in a csv file with lat,lon values in a column and turn those lat lon
         values into geometry.Point objects.
@@ -62,6 +64,15 @@ lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
 
 
+ax.scatter([point.x for point in points],
+           [point.y for point in points],
+           transform=ccrs.Geodetic())
+
+
+
+# read raw data
+df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
+df['DATE'] = pd.to_datetime(df.DATE)
 
 # pd.read_csv('')
 
@@ -375,14 +386,6 @@ for i, var in enumerate(variables):
 # ------------------------------------------------------------------------------
 
 
-def get_unmasked_data(dataArray, dataMask):
-    """ get the data INSIDE the dataMask
-    Keep values if True, remove values if False
-     (doing the opposite of a 'mask' - perhaps should rename)
-    """
-    return dataArray.where(dataMask)
-
-
 h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
@@ -390,8 +393,8 @@ c_col = sns.color_palette()[3]
 colors = [h_col, m_col, g_col]
 
 
-# from engineering.eng_utils import get_unmasked_data
-# from plotting.plots import plot_marginal_distribution, plot_masked_spatial_and_hist
+from engineering.eng_utils import get_unmasked_data
+from plotting.plots import plot_marginal_distribution, plot_masked_spatial_and_hist
 
 
 def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
@@ -441,101 +444,27 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
 
 # ------------------------------------------------------------------------------
-# plot topo histogram
+# 1. plot topo histogram
 title = "Density Plot of Topography/Elevation in East Africa Region"
 fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
 fig.savefig('figs/topo_histogram.png')
 
 
-# plot topo_histogram with quintiles
+# 2. plot topo_histogram with quintiles
 # get the qunitile values
 fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
-
 # create and plot the qunitiles
 qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
 [ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
 
 fig.savefig('figs/topo_histogram_quintiles.png')
 
-
-# convert to dataset
-def create_new_binned_dimensions(ds, group_var, intervals):
-    """ Get the values in `ds` for `group_var` WITHIN the `interval` ranges.
-         Return a new xr.Dataset with a new set of variables called `{group_var}_bins`.
-
-    Arguments:
-    ---------
-    : ds (xr.Dataset)
-        the dataset in which we are finding the values that lie within an interval
-         range.
-    : group_var (str)
-        the variable that we are trying to bin
-    : intervals (list, np.ndarray)
-        list of `pandas._libs.interval.Interval` with methods `interval.left`
-         and `interval.right` for extracting the values that fall within that
-         range.
-
-    Returns:
-    -------
-    : ds_bins (xr.Dataset)
-        dataset with new `Variables` one for each bin. Pixels outside of the
-         interval range are masked with np.nan
-    """
-    ds_bins = xr.concat([ds.where(
-                             (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
-                           )
-                    for interval in intervals
-                   ]
-    )
-    ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
-    return ds_bins
-
-
-# TEST THIS!!!!
-def bin_dataset(ds, group_var, n_bins):
-    """
-    Arguments:
-    ---------
-    : ds (xr.Dataset)
-        the dataset that you want to group / bin
-    : group_var (str)
-        the data variable that you want to group into bins
-
-    Returns:
-    -------
-    : topo_bins (xr.Dataset)
-        dataset object with number of variables equal to the number of bins
-    : intervals (tuple)
-        tuple of tuples with the bin left and right edges
-         (intervals[0][0] = left edge;
-          intervals[0][0] = right edge
-         )
-    """
-    # groupby and collaps to the MID ELEVATION for the values (allows us to extract )
-    bins = ds.groupby_bins(group=group_var,bins=n_bins).mean()
-    # assert False, "hardcoding the elevation_bins here need to do this dynamically"
-    binned_var = [key for key in bins.coords.keys()]
-    assert len(binned_var) == 1, "The binned Var should only be one variable!"
-    binned_var = binned_var[0]
-
-    # extract the bin locations
-    intervals = bins[binned_var].values
-    left_bins = [interval.left for interval in intervals]
-    # use bin locations to create mask variables of those values inside that
-    ds_bins = create_new_binned_dimensions(ds, group_var, intervals)
-    # ds_bins = xr.concat([ds.where(
-    #                              (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
-    #                            )
-    #                     for interval in intervals
-    #                    ]
-    # )
-    # ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
-
-    return ds_bins, intervals
-
 # ----------------------------------------------------
 # TOPO CLEANING
 # ----------------------------------------------------
+
+from engineering.eng_utils import bin_dataset
+
 # CLEAN CODE:
 if not isinstance(topo, xr.Dataset):
     topo = topo.to_dataset(name='elevation')
@@ -564,16 +493,21 @@ topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
 
 # ----------------------------------------------------
 # CLEAN CODE
+
 # for each of the 10 topography bins
 for i in range(10):
     dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
-    dataArrays = [ds.holaps_evapotranspiration,
-    ds.modis_evapotranspiration,
-    ds.gleam_evapotranspiration]
+    dataArrays = [
+        ds.holaps_evapotranspiration,
+        ds.modis_evapotranspiration,
+        ds.gleam_evapotranspiration
+    ]
     colors = [h_col, m_col, g_col]
-    titles = ["holaps_evapotranspiration",
-    "modis_evapotranspiration",
-    "gleam_evapotranspiration"]
+    titles = [
+        "holaps_evapotranspiration",
+        "modis_evapotranspiration",
+        "gleam_evapotranspiration"
+    ]
     kwargs = {"vmin":0,"vmax":3.5}
     fig = plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs)
 

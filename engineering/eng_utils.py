@@ -17,6 +17,82 @@ def get_unmasked_data(dataArray, dataMask):
     return dataArray.where(dataMask)
 
 
+def create_new_binned_dimensions(ds, group_var, intervals):
+    """ Get the values in `ds` for `group_var` WITHIN the `interval` ranges.
+         Return a new xr.Dataset with a new set of variables called `{group_var}_bins`.
+
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+        the dataset in which we are finding the values that lie within an interval
+         range.
+    : group_var (str)
+        the variable that we are trying to bin
+    : intervals (list, np.ndarray)
+        list of `pandas._libs.interval.Interval` with methods `interval.left`
+         and `interval.right` for extracting the values that fall within that
+         range.
+
+    Returns:
+    -------
+    : ds_bins (xr.Dataset)
+        dataset with new `Variables` one for each bin. Pixels outside of the
+         interval range are masked with np.nan
+    """
+    ds_bins = xr.concat([ds.where(
+                             (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
+                           )
+                    for interval in intervals
+                   ]
+    )
+    ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
+    return ds_bins
+
+
+
+def bin_dataset(ds, group_var, n_bins):
+    """
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+        the dataset that you want to group / bin
+    : group_var (str)
+        the data variable that you want to group into bins
+
+    Returns:
+    -------
+    : topo_bins (xr.Dataset)
+        dataset object with number of variables equal to the number of bins
+    : intervals (tuple)
+        tuple of tuples with the bin left and right edges
+         (intervals[0][0] = left edge;
+          intervals[0][0] = right edge
+         )
+    """
+    # groupby and collaps to the MID ELEVATION for the values (allows us to extract )
+    bins = ds.groupby_bins(group=group_var,bins=n_bins).mean()
+    # assert False, "hardcoding the elevation_bins here need to do this dynamically"
+    binned_var = [key for key in bins.coords.keys()]
+    assert len(binned_var) == 1, "The binned Var should only be one variable!"
+    binned_var = binned_var[0]
+
+    # extract the bin locations
+    intervals = bins[binned_var].values
+    left_bins = [interval.left for interval in intervals]
+    # use bin locations to create mask variables of those values inside that
+    ds_bins = create_new_binned_dimensions(ds, group_var, intervals)
+    # ds_bins = xr.concat([ds.where(
+    #                              (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
+    #                            )
+    #                     for interval in intervals
+    #                    ]
+    # )
+    # ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
+
+    return ds_bins, intervals
+
+
+
 # ------------------------------------------------------------------------------
 # Collapsing Time Dimensions
 # ------------------------------------------------------------------------------
@@ -126,6 +202,8 @@ def drop_nans_and_flatten(dataArray):
     """
     # drop NaNs and flatten
     return dataArray.values[~np.isnan(dataArray.values)]
+
+
 
 
 def create_flattened_dataframe_of_values(h,g,m):

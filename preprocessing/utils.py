@@ -9,6 +9,36 @@ import ipdb
 import warnings
 import datetime
 
+import geopandas as gpd
+from shapely import geometry
+
+
+def read_csv_point_data(df, lat_col='lat', lon_col='lon', crs='epsg:4326'):
+    """Read in a csv file with lat,lon values in a column and turn those lat lon
+        values into geometry.Point objects.
+    Arguments:
+    ---------
+    : df (pd.DataFrame)
+    : lat_col (str)
+        the column in the dataframe that has the point latitude information
+    : lon_col (str)
+        the column in the dataframe that has the point longitude information
+    : crs (str)
+        coordinate reference system (defaults to 'epsg:4326')
+    Returns:
+    -------
+    : gdf (gpd.GeoDataFrame)
+        a geopandas.GeoDataFrame object
+    """
+    df['geometry'] = [geometry.Point(y, x) \
+                      for x, y in zip(df[lat_col],
+                                      df[lon_col])
+                    ]
+    crs = {'init': crs}
+    gdf = gpd.GeoDataFrame(df, crs=crs, geometry="geometry")
+    return gdf
+
+
 # ------------------------------------------------------------------------------
 # Functions for reprojecting using GDAL and reading resulting .nc file back
 # ------------------------------------------------------------------------------
