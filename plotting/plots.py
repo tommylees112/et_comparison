@@ -233,141 +233,51 @@ def plot_all_spatial_means(ds, area):
 
 
 
-def get_river_features():
-    """ Get the 10m river features from NaturalEarth and turn into shapely.geom
-    Note: https://github.com/SciTools/cartopy/issues/945
-
-    """
-    shp_path = cartopy.io.shapereader.natural_earth(
-        resolution='10m',
-        category='physical',
-        name='rivers_lake_centerlines')
-
-    shp_contents = cartopy.io.shapereader.Reader(shp_path)
-    river_generator = shp_contents.geometries()
-    river_feature = cartopy.feature.ShapelyFeature(
-        river_generator,
-        cartopy.crs.PlateCarree(),
-        edgecolor=water_color,
-        facecolor='none')
-
-    return river_feature
 
 
 
-def plot_geog_location(region, lakes=False, borders=False, rivers=False):
-    """ use cartopy to plot the region (defined as a namedtuple object)
+def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
+    """ SPATIAL and HISTOGRAM plots to show the conditional distributions given
+         a particular mask.
 
     Arguments:
     ---------
-    : region (Region namedtuple)
-        region of interest bounding box defined in engineering/regions.py
-    : lakes (bool)
-        show lake features
-    : borders (bool)
-        show lake features
-    : rivers (bool)
-        show river features (@10m scale from NaturalEarth)
+    : dataMask (xr.DataArray)
+        Mask for a particular area
+    : DataArrays (list, tuple, iterable?)
+        list of xr.DataArrays to use for the data.
     """
-    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
-    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
-    ax.add_feature(cartopy.feature.COASTLINE)
-    if borders:
-        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
-    if lakes:
-        ax.add_feature(cartopy.feature.LAKES)
-    if rivers:
-        # assert False, "Rivers are not yet working in this function"
-        water_color = '#3690f7'
-        river_feature = get_river_features()
-        ax.add_feature(river_feature)
+    assert all([isinstance(da, xr.DataArray) for da in DataArrays]), f"Currently only works when every member of DataArrays are xr.DataArray. Currently: {[type(da) for da in DataArrays]}"
+    assert len(colors) == len(DataArrays), f"Len of the colors has to be equal to the len of the DataArrays \n Currently len(colors): {len(colors)} \tlen(DataArrays): {len(DataArrays)}"
+    assert len(titles) == len(DataArrays), f"Len of the titles has to be equal to the len of the DataArrays \n Currently len(titles): {len(titles)} \tlen(DataArrays): {len(DataArrays)}"
 
-    ax.set_extent([lonmin, lonmax, latmin, latmax])
+    fig, axs = plt.subplots(2, len(DataArrays), figsize=(12*scale,8*scale))
+    for j, DataArray in enumerate(DataArrays):
+        if 'time' in DataArray.dims:
+            # if time variable e.g. Evapotranspiration
+            dataArray = get_unmasked_data(DataArray.mean(dim='time'), dataMask)
+        else:
+            # if time constant e.g. landcover
+            dataArray = get_unmasked_data(DataArray, dataMask)
 
-    # plot the lat lon labels
-    # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
-    # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
-    xticks = np.linspace(lonmin, lonmax, 5)
-    yticks = np.linspace(latmin, latmax, 5)
+        # get the axes for the spatial plots and the histograms
+        ax_map = axs[0,j]
+        ax_hist = axs[1,j]
+        color = colors[j]
+        title = titles[j]
 
-    ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
-    ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
-    lon_formatter = LongitudeFormatter(zero_direction_label=True)
-    lat_formatter = LatitudeFormatter()
-    ax.xaxis.set_major_formatter(lon_formatter)
-    ax.yaxis.set_major_formatter(lat_formatter)
+        ax_map.set_title(f'{dataArray.name}')
+        ylim = [0,1.1]; xlim = [0,7]
+        ax_hist.set_ylim(ylim)
+        ax_hist.set_xlim(xlim)
 
-    fig = plt.gcf()
+        # plot the map
+        plot_mean_time(dataArray, ax_map, add_colorbar=True, **kwargs)
+        # plot the histogram
+        plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataArray.name)
+        # plot_masked_histogram(ax_hist, dataArray, color, dataset)
 
-    return fig, ax
-
-
-def add_points_to_map(ax, geodf):
-    """ Add the point data stored in `geodf.geometry` as points to ax
-    Arguments:
-    ---------
-    : geodf (geopandas.GeoDataFrame)
-        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
-    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
-    """
-    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
-    points = geodf.geometry.values
-    ax.scatter([point.x for point in points],
-               [point.y for point in points],
-               transform=cartopy.crs.PlateCarree())
-
-    return ax
-
-
-def plot_stations_on_region_map(region, station_location_df):
-    """ Plot the station locations in `station_location_df` on a map of the region
-
-    Arguments:
-    ---------
-    : region (Region, namedtuple)
-    : station_location_df (geopandas.GeoDataFrame)
-        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
-
-    Returns:
-    -------
-    : fig (matplotlib.figure.Figure)
-    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
-    """
-    fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True)
-    ax =  add_points_to_map(ax, station_location_df)
-
-    return fig, ax
-
-
-def add_sub_region_box(ax, subregion, color):
-    """ Plot a box for the subregion on the cartopy axes.
-    TODO: implement a check where the subregion HAS TO BE inside the axes limits
-
-    Arguments:
-    ---------
-    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
-        axes that you are plotting on
-    : subregion (Region namedtuple)
-        region of interest bounding box defined in engineering/regions.py
-    """
-    geom = geometry.box(minx=subregion.lonmin,maxx=subregion.lonmax,miny=subregion.latmin,maxy=subregion.latmax)
-    ax.add_geometries([geom], crs=cartopy.crs.PlateCarree(), color=color, alpha=0.3)
-    return ax
-
-
-def plot_all_regions(regions):
-    """
-    : regions (list, tuple)
-        list of Region objects to plot geographic locations
-    """
-    for region in regions:
-        fig = plot_geog_location(region, rivers=True, borders=True)
-        plt.gca().set_title(region.name)
-        fig.savefig(f'figs/{region.name}.png')
-
-    return
-
-
+    return fig
 
 # ------------------------------------------------------------------------------
 # Temporal Plots
@@ -541,7 +451,7 @@ def plot_seasonal_comparisons_ET_diff(seasonal_ds, **kwargs):
     return fig
 
 # ------------------------------------------------------------------------------
-# Geographical Plotting
+# Geographical Plotting (cartopy helpers)
 # ------------------------------------------------------------------------------
 
 def plot_xarray_on_map(da,borders=True,coastlines=True,**kwargs):
@@ -565,6 +475,141 @@ def plot_xarray_on_map(da,borders=True,coastlines=True,**kwargs):
     ax.outline_patch.set_visible(False)
     return fig, ax
 
+
+
+def get_river_features():
+    """ Get the 10m river features from NaturalEarth and turn into shapely.geom
+    Note: https://github.com/SciTools/cartopy/issues/945
+
+    """
+    shp_path = cartopy.io.shapereader.natural_earth(
+        resolution='10m',
+        category='physical',
+        name='rivers_lake_centerlines')
+
+    water_color = '#3690f7'
+    shp_contents = cartopy.io.shapereader.Reader(shp_path)
+    river_generator = shp_contents.geometries()
+    river_feature = cartopy.feature.ShapelyFeature(
+        river_generator,
+        cartopy.crs.PlateCarree(),
+        edgecolor=water_color,
+        facecolor='none')
+
+    return river_feature
+
+
+
+def plot_geog_location(region, lakes=False, borders=False, rivers=False):
+    """ use cartopy to plot the region (defined as a namedtuple object)
+
+    Arguments:
+    ---------
+    : region (Region namedtuple)
+        region of interest bounding box defined in engineering/regions.py
+    : lakes (bool)
+        show lake features
+    : borders (bool)
+        show lake features
+    : rivers (bool)
+        show river features (@10m scale from NaturalEarth)
+    """
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
+    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+    ax.add_feature(cartopy.feature.COASTLINE)
+    if borders:
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
+    if lakes:
+        ax.add_feature(cartopy.feature.LAKES)
+    if rivers:
+        # assert False, "Rivers are not yet working in this function"
+        river_feature = get_river_features()
+        ax.add_feature(river_feature)
+
+    ax.set_extent([lonmin, lonmax, latmin, latmax])
+
+    # plot the lat lon labels
+    # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
+    # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
+    xticks = np.linspace(lonmin, lonmax, 5)
+    yticks = np.linspace(latmin, latmax, 5)
+
+    ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
+    ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
+    lon_formatter = LongitudeFormatter(zero_direction_label=True)
+    lat_formatter = LatitudeFormatter()
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+
+    fig = plt.gcf()
+
+    return fig, ax
+
+
+def add_points_to_map(ax, geodf):
+    """ Add the point data stored in `geodf.geometry` as points to ax
+    Arguments:
+    ---------
+    : geodf (geopandas.GeoDataFrame)
+        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+    """
+    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
+    points = geodf.geometry.values
+    ax.scatter([point.x for point in points],
+               [point.y for point in points],
+               transform=cartopy.crs.PlateCarree())
+
+    return ax
+
+
+def plot_stations_on_region_map(region, station_location_df):
+    """ Plot the station locations in `station_location_df` on a map of the region
+
+    Arguments:
+    ---------
+    : region (Region, namedtuple)
+    : station_location_df (geopandas.GeoDataFrame)
+        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
+
+    Returns:
+    -------
+    : fig (matplotlib.figure.Figure)
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+    """
+    fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True)
+    ax =  add_points_to_map(ax, station_location_df)
+
+    return fig, ax
+
+
+def add_sub_region_box(ax, subregion, color):
+    """ Plot a box for the subregion on the cartopy axes.
+    TODO: implement a check where the subregion HAS TO BE inside the axes limits
+
+    Arguments:
+    ---------
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+        axes that you are plotting on
+    : subregion (Region namedtuple)
+        region of interest bounding box defined in engineering/regions.py
+    """
+    geom = geometry.box(minx=subregion.lonmin,maxx=subregion.lonmax,miny=subregion.latmin,maxy=subregion.latmax)
+    ax.add_geometries([geom], crs=cartopy.crs.PlateCarree(), color=color, alpha=0.3)
+    return ax
+
+
+def plot_all_regions(regions):
+    """
+    : regions (list, tuple)
+        list of Region objects to plot geographic locations
+    """
+    for region in regions:
+        fig = plot_geog_location(region, rivers=True, borders=True)
+        plt.gca().set_title(region.name)
+        fig.savefig(f'figs/{region.name}.png')
+
+    return
 
 # ------------------------------------------------------------------------------
 #

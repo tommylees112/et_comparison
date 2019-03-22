@@ -28,49 +28,20 @@ BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 # ------------------------------------------------------------------------------
 # Working with FLOW data
 # ------------------------------------------------------------------------------
-from shapely import geometry
-import geopandas as gpd
+from preprocessing.utils import read_csv_point_data
+from plotting.plots import plot_stations_on_region_map
+from engineering.regions import regions
 
-
-from preprocessing.utils read_csv_point_data
-
-def read_csv_point_data(df, lat_col='lat', lon_col='lon', crs='epsg:4326'):
-    """Read in a csv file with lat,lon values in a column and turn those lat lon
-        values into geometry.Point objects.
-    Arguments:
-    ---------
-    : df (pd.DataFrame)
-    : lat_col (str)
-        the column in the dataframe that has the point latitude information
-    : lon_col (str)
-        the column in the dataframe that has the point longitude information
-    : crs (str)
-        coordinate reference system (defaults to 'epsg:4326')
-    Returns:
-    -------
-    : gdf (gpd.GeoDataFrame)
-        a geopandas.GeoDataFrame object
-    """
-    df['geometry'] = [geometry.Point(y, x) \
-                      for x, y in zip(df[lat_col],
-                                      df[lon_col])
-                    ]
-    crs = {'init': crs}
-    gdf = gpd.GeoDataFrame(df, crs=crs, geometry="geometry")
-    return gdf
+all_region = regions[0]
+highlands = regions[1]
 
 
 # gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
 
-
-points = lookup_gdf.geometry.values
-ax.scatter([point.x for point in points],
-           [point.y for point in points],
-           transform=ccrs.Geodetic())
-
-
+# plot locations of all stations
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 
 # read raw data
 df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
@@ -276,8 +247,6 @@ assert False, "TEST ME GODDAMIT"
 lc_2 = get_lookup_val(xr_obj, variable, new_variable, lookup_dict)
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-
-
 #%%
 # ------------------------------------------------------------------------------
 # Subset by River Basins (or any other shapefile)
@@ -396,7 +365,7 @@ colors = [h_col, m_col, g_col]
 
 from engineering.eng_utils import get_unmasked_data
 from plotting.plots import plot_marginal_distribution, plot_mean_time
-from plotting.plots import plot_masked_spatial_and_hist
+# from plotting.plots import plot_masked_spatial_and_hist
 
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
 
@@ -405,7 +374,6 @@ topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean
 title = "Density Plot of Topography/Elevation in East Africa Region"
 fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
 fig.savefig('figs/topo_histogram.png')
-
 
 # 2. plot topo_histogram with quintiles
 # get the qunitile values
@@ -417,84 +385,21 @@ qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
 fig.savefig('figs/topo_histogram_quintiles.png')
 
 # ----------------------------------------------------
-# TOPO CLEANING
+# Conditional on Elevation (TOPO)
 # ----------------------------------------------------
 
 from engineering.eng_utils import bin_dataset, pickle_files
+from engineering.eng_utils import get_unmasked_data
+from plotting.plots import plot_marginal_distribution, plot_mean_time
 from plotting.plots import plot_masked_spatial_and_hist
+from engineering.eng_utils import load_pickle
 
 # CLEAN CODE:
-try:
-    # try opening already saved files
-    topo_bins = xr.open_dataset(BASE_DATA_DIR/"topo_bins1.nc")
-    with open(BASE_DATA_DIR / 'intervals_topo1.pickle', 'rb') as f:
-        intervals = pickle.load(f)
+topo_bins = xr.open_dataset(BASE_DATA_DIR/"topo_bins1.nc")
+intervals = load_pickle(BASE_DATA_DIR / 'intervals_topo1.pickle')
 
-except:
-    if not isinstance(topo, xr.Dataset):
-        topo = topo.to_dataset(name='elevation')
-
-    topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
-
-    # repeat for 60 timesteps (TO BE USED AS `ds` mask)
-    topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
-    topo_bins = topo_bins.rename({'concat_dims':'time'})
-    topo_bins['time'] = ds.time
-
-    filepaths = [BASE_DATA_DIR / 'intervals_topo1.pickle', BASE_DATA_DIR / 'topo_bins1.pickle']
-    vars = [intervals, topo_bins]
-    pickle_files(filepaths, vars)
-
-    topo_bins.to_netcdf(BASE_DATA_DIR / 'topo_bins1.nc')
 
 interval_ranges = [(interval.left, interval.right) for interval in intervals]
-
-# ----------------------------------------------------
-# CLEAN CODE
-def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
-    """ SPATIAL and HISTOGRAM plots to show the conditional distributions given
-         a particular mask.
-
-    Arguments:
-    ---------
-    : dataMask (xr.DataArray)
-        Mask for a particular area
-    : DataArrays (list, tuple, iterable?)
-        list of xr.DataArrays to use for the data.
-    """
-    assert all([isinstance(da, xr.DataArray) for da in DataArrays]), f"Currently only works when every member of DataArrays are xr.DataArray. Currently: {[type(da) for da in DataArrays]}"
-    assert len(colors) == len(DataArrays), f"Len of the colors has to be equal to the len of the DataArrays \n Currently len(colors): {len(colors)} \tlen(DataArrays): {len(DataArrays)}"
-    assert len(titles) == len(DataArrays), f"Len of the titles has to be equal to the len of the DataArrays \n Currently len(titles): {len(titles)} \tlen(DataArrays): {len(DataArrays)}"
-
-    fig, axs = plt.subplots(2, len(DataArrays), figsize=(12*scale,8*scale))
-    for j, DataArray in enumerate(DataArrays):
-        if 'time' in DataArray.dims:
-            # if time variable e.g. Evapotranspiration
-            dataArray = get_unmasked_data(DataArray.mean(dim='time'), dataMask)
-        else:
-            # if time constant e.g. landcover
-            dataArray = get_unmasked_data(DataArray, dataMask)
-
-        # get the axes for the spatial plots and the histograms
-        ax_map = axs[0,j]
-        ax_hist = axs[1,j]
-        color = colors[j]
-        title = titles[j]
-
-        ax_map.set_title(f'{dataArray.name}')
-        ylim = [0,1.1]; xlim = [0,7]
-        ax_hist.set_ylim(ylim)
-        ax_hist.set_xlim(xlim)
-
-        # plot the map
-        plot_mean_time(dataArray, ax_map, add_colorbar=True, **kwargs)
-        # plot the histogram
-        plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataArray.name)
-        # plot_masked_histogram(ax_hist, dataArray, color, dataset)
-
-    return fig
-
-
 # for each of the 10 topography bins
 for i in range(10):
     dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
@@ -515,49 +420,13 @@ for i in range(10):
     # add the figure titles and save figures
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
-    # fig.savefig(f'figs/elevation_bin{i}.png')
-# ----------------------------------------------------
-
-
-
-
-
-
-
-
-for i in range(10):
-    scale=1.5
-    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
-    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
-
-    for j, dataset in enumerate(['holaps','modis','gleam']):
-        dataArray = ds[f'{dataset}_evapotranspiration']
-        dataArray = get_unmasked_data(dataArray.mean(dim='time'), dataMask)
-        color = colors[j]
-        # get the axes that correspond to the different rows
-        ax_map = axs[0,j]
-        ax_hist = axs[1,j]
-
-        ax_map.set_title(f'{dataset} Evapotranspiration')
-
-        # plot the maps
-
-        # plot the histograms
-        plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim=[0,1.1],xlim=[0,7])
-
-    elevation_range = interval_ranges[i]
-    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
     fig.savefig(f'figs/elevation_bin{i}.png')
 
 #%%
 # ------------------------------------------------------------------------------
 # Plot the bounding Box
 # ------------------------------------------------------------------------------
-# https://stackoverflow.com/questions/12251189/how-to-draw-rectangles-on-a-basemap
-# https://stackoverflow.com/questions/14589600/matplotlib-insets-in-subplots
-#
 
-# CLEAN CODE
 from engineering.regions import regions
 from plotting.plots import plot_geog_location, plot_stations_on_region_map
 from plotting.plots import add_points_to_map, add_sub_region_box
@@ -634,46 +503,3 @@ fig.savefig('figs/spatial_mean_seasonality.png')
 
 fig = plot_normalised_seasonality(ds, double_year=True)
 fig.savefig('figs/spatial_mean_seasonality_normed.png')
-
-#%%
-# ------------------------------------------------------------------------------
-# Analysis by Elevation: group by elevation
-# ------------------------------------------------------------------------------
-
-
-
-
-# ------------------------------------------------------------------------------
-# USING BASEMAP (depreceated code)
-# ------------------------------------------------------------------------------
-from mpl_toolkits.basemap import Basemap
-from matplotlib.patches import Polygon
-# OLD CODE (basemap)
-from itertools import chain
-
-def draw_map(m, scale=0.2):
-    # draw a shaded-relief image
-    m.shadedrelief(scale=scale)
-
-    # lats and longs are returned as a dictionary
-    lats = m.drawparallels(np.linspace(-90, 90, 13))
-    lons = m.drawmeridians(np.linspace(-180, 180, 13))
-
-    # keys contain the plt.Line2D instances
-    lat_lines = chain(*(tup[1][0] for tup in lats.items()))
-    lon_lines = chain(*(tup[1][0] for tup in lons.items()))
-    all_lines = chain(lat_lines, lon_lines)
-
-    # cycle through these lines and set the desired style
-    for line in all_lines:
-        line.set(linestyle='-', alpha=0.3, color='w')
-
-def plot_bounding_box_map(latmin,latmax,lonmin,lonmax):
-    fig = plt.figure(figsize=(8, 6), edgecolor='w')
-    m = Basemap(projection='cyl', resolution='h',
-                llcrnrlat=latmin, urcrnrlat=latmax,
-                llcrnrlon=lonmin, urcrnrlon=lonmax, )
-    draw_map(m)
-    return fig
-
-plot_bounding_box_map(latmin,latmax,lonmin,lonmax)

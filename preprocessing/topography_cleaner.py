@@ -34,3 +34,21 @@ topo = topo.where(~mask)
 
 if not os.path.isfile('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc'):
     topo.to_netcdf('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')
+
+
+
+if not isinstance(topo, xr.Dataset):
+    topo = topo.to_dataset(name='elevation')
+
+
+# Bin dataset by elevation
+topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
+
+# repeat for 60 timesteps (TO BE USED AS `ds` mask)
+topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+topo_bins = topo_bins.rename({'concat_dims':'time'})
+topo_bins['time'] = ds.time
+filepaths = [BASE_DATA_DIR / 'intervals_topo1.pickle', BASE_DATA_DIR / 'topo_bins1.pickle']
+vars = [intervals, topo_bins]
+pickle_files(filepaths, vars)
+topo_bins.to_netcdf(BASE_DATA_DIR / 'topo_bins1.nc')

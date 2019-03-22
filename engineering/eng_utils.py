@@ -239,6 +239,18 @@ def pickle_files(filepaths, vars):
     """ """
     assert len(filepaths) == len(vars), f"filepaths should be same size as vars because each variable needs a filepath! currently: len(filepaths): {len(filepaths)} len(vars): {len(vars)}"
 
-    for filepath in filepaths:
-        with open(filepath, 'wb') as f:
-            pickle.dump(intervals, f)
+    for i, filepath in enumerate(filepaths):
+        save_pickle(filepath, variable)
+
+
+def load_pickle(filepath):
+    """ """
+    with open(filepath, 'rb') as f:
+        return pickle.load(f)
+
+
+def save_pickle(filepath, variable):
+    """ """
+    with open(filepath, 'wb') as f:
+        pickle.dump(variable, f)
+    return
