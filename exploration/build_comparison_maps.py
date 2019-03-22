@@ -44,9 +44,10 @@ fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 
 # read raw data
 df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
-df['DATE'] = pd.to_datetime(df.DATE)
+df.index = pd.to_datetime(df.DATE)
+df = df.drop(columns='DATE')
 
-# pd.read_csv('')
+
 
 
 #%%
@@ -55,22 +56,51 @@ df['DATE'] = pd.to_datetime(df.DATE)
 # http://www.fao.org/geonetwork/srv/en/metadata.show?id=30915&currTab=simple
 # ------------------------------------------------------------------------------
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+from engineering.eng_utils import get_lookup_val, mask_multiple_conditions
 
+# get location of files
 base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
 river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
 
+
+# 1. add new coordinate from shapefile
 river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
+
+# 2. create lookup values for the basins
 all_basins = np.unique(river_ds.river_basins)[~np.isnan(np.unique(river_ds.river_basins))]
-
 # first 2 digits are significant! (drop the first one (-0.))
-bsns = np.unique(all_basins // 100)[1:]
-lkup = dict(zip(all_basins ,(all_basins // 100)))
+bsns = np.unique(all_basins // 100)
 
+lkup = dict(zip(all_basins, (all_basins // 100)))
+lkup[np.nan] = np.nan
 
-# >>>>>>>>>>>>>>>>>>>
-assert False, "Need to get a dictionary to lookup the values of the river_basins variable in river_ds"
-# <<<<<<<<<<<<<<<<<<<
+# 3. add new variable with lookup values
+r = get_lookup_val(xr_obj=river_ds, variable='river_basins',
+        new_variable='basin_code', lookup_dict=lkup
+)
 
+# 4. subset by multiple basins
+vals_to_keep = bsns[:3]
+da = r.basin_code
+bsn_msk = mask_multiple_conditions(da, vals_to_keep)
+subset = r.where(bsn_msk)
+
+# 5. plot and assign no. of levels to distinguish all vals
+fig,ax= plt.subplots()
+subset.basin_code.plot.contourf(levels=10, ax=ax)
+
+# plot the stations ONTOP of the basins
+from plotting.plots import plot_stations_on_region_map
+
+# Plot NW most basins (more data)
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+subset.basin_code.plot.contourf(levels=10, ax=ax, zorder=0)
+
+#
+# fig,ax = plt.subplots()
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+blue_nile = r.where(r.basin_code == 23)
+blue_nile.holaps_evapotranspiration.mean(dim='time').plot(ax=ax, zorder=0)
 
 #%%
 # ------------------------------------------------------------------------------
@@ -259,16 +289,9 @@ lookup = dict(zip(lookup.iloc[:,0], lookup.iloc[:,1]))
 
 from engineering.eng_utils import get_lookup_val, drop_nans_and_flatten, create_flattened_dataframe_of_values
 
-xr_obj = lc
-variable = 'esa_cci_landcover'
-new_variable = 'new_label'
-lookup_dict = lookup
-
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-assert False, "TEST ME GODDAMIT"
-lc_2 = get_lookup_val(xr_obj, variable, new_variable, lookup_dict)
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
+lc_2 = get_lookup_val(xr_obj=lc, variable='esa_cci_landcover',
+        new_variable='lc_string', lookup_dict=lookup
+)
 
 #%%
 # ------------------------------------------------------------------------------

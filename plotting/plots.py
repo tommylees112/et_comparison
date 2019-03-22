@@ -546,7 +546,7 @@ def plot_geog_location(region, lakes=False, borders=False, rivers=False):
     return fig, ax
 
 
-def add_points_to_map(ax, geodf):
+def add_points_to_map(ax, geodf, point_colors="#0037ff"):
     """ Add the point data stored in `geodf.geometry` as points to ax
     Arguments:
     ---------
@@ -558,12 +558,13 @@ def add_points_to_map(ax, geodf):
     points = geodf.geometry.values
     ax.scatter([point.x for point in points],
                [point.y for point in points],
-               transform=cartopy.crs.PlateCarree())
+               transform=cartopy.crs.PlateCarree(),
+               color=point_colors)
 
     return ax
 
 
-def plot_stations_on_region_map(region, station_location_df):
+def plot_stations_on_region_map(region, station_location_df, point_colors="#0037ff"):
     """ Plot the station locations in `station_location_df` on a map of the region
 
     Arguments:
@@ -578,7 +579,7 @@ def plot_stations_on_region_map(region, station_location_df):
     : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
     """
     fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True)
-    ax =  add_points_to_map(ax, station_location_df)
+    ax =  add_points_to_map(ax, station_location_df, point_colors=point_colors)
 
     return fig, ax
 

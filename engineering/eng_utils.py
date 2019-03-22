@@ -87,6 +87,29 @@ def bin_dataset(ds, group_var, n_bins):
     return ds_bins, intervals
 
 
+def mask_multiple_conditions(da, vals_to_keep):
+    """
+    Arguments:
+    ---------
+    : da (xr.DataArray)
+        data that you want to mask
+    : variable (str)
+        variable to search for the values in vals_to_keep
+    : vals_to_keep (list)
+        list of values to keep from variable
+
+    Returns:
+    -------
+    : msk (xr.DataArray)
+        a mask showing True for matches and False for non-matches
+
+    Note: https://stackoverflow.com/a/40556458/9940782
+    """
+    msk = xr.DataArray(np.in1d(da, sub).reshape(da.shape),
+                       dims=da.dims, coords=da.coords)
+
+    return msk
+
 
 # ------------------------------------------------------------------------------
 # Collapsing Time Dimensions
@@ -196,8 +219,9 @@ def get_lookup_val(xr_obj, variable, new_variable, lookup_dict):
     new_ar = replace_with_dict2(ar, lookup_dict)
 
     # assign the values looked up from the dictionary to a new variable in the xr_obj
-    ipdb.set_trace()
-    xr_obj[new_variable] = new_ar
+    new_da = xr.DataArray(new_ar, coords=[xr_obj.lat, xr_obj.lon], dims=['lat', 'lon'])
+    new_da.name = new_variable
+    xr_obj = xr.merge([xr_obj, new_da])
 
     return xr_obj
 
