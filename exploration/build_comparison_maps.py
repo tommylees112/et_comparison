@@ -22,7 +22,6 @@ from preprocessing.utils import *
 
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 
-
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 #%%
 # ------------------------------------------------------------------------------
@@ -48,7 +47,20 @@ df.index = pd.to_datetime(df.DATE)
 df = df.drop(columns='DATE')
 
 
+# do unit conversion (without your previous calcs)
+# blue nile metadata
+bn_meta = lookup_df.query('RiverName == "Blue Nile"')
+plot_stations_on_region_map(all_region, bn_meta)
 
+# what are the unite of the DrainArLDD ??
+drainage_area = bn_meta.DrainArLDD
+bn_stations = df[bn_meta.ID]
+
+#
+bn_stations = df[bn_meta.ID]
+for ID in bn_meta.ID:
+    drainage_area = bn_meta.query(f'ID == "{ID}"').DrainArLDD.values[0]
+    bn_stations[ID] = bn_stations[ID] * 86400 / drainage_area
 
 #%%
 # ------------------------------------------------------------------------------
@@ -101,6 +113,25 @@ subset.basin_code.plot.contourf(levels=10, ax=ax, zorder=0)
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 blue_nile = r.where(r.basin_code == 23)
 blue_nile.holaps_evapotranspiration.mean(dim='time').plot(ax=ax, zorder=0)
+
+
+def label_basins():
+    """https://stackoverflow.com/a/38902492/9940782
+
+    pseudo code:
+    1) get the shapely geometry objects from the xarray plots
+    2) compute a point inside them using
+        c['geometry'].apply(lambda x: x.representative_point().coords[:])
+        c['coords'] = [coords[0] for coords in c['coords']]
+    3) label them by the row 'NAME'
+        c.plot()
+        for idx, row in c.iterrows():
+            plt.annotate(s=row['NAME'], xy=row['coords'],
+                         horizontalalignment='center')
+
+    """
+    assert False, "Not Implemented!"
+    return
 
 #%%
 # ------------------------------------------------------------------------------
