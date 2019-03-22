@@ -1,16 +1,30 @@
-import seaborn as sns
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+# statistical tests
 from scipy import stats
 from scipy.stats import pearsonr
+
+# General Plotting
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# Geographic Plotting
 import cartopy.crs as ccrs
 import cartopy
+import cartopy.feature as cpf
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+import cartopy.io.img_tiles as cimgt
+import matplotlib.patches as mpatches
+from shapely.geometry.polygon import LinearRing
+
 
 import itertools
-
 import os
 
+# Custom functions
 from engineering.eng_utils import drop_nans_and_flatten
 
 # ------------------------------------------------------------------------------

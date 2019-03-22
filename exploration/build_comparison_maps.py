@@ -398,8 +398,6 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
     return fig
 
 
-
-
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean.nc')
 
 # ------------------------------------------------------------------------------
@@ -462,7 +460,8 @@ def bin_dataset(ds, group_var, n_bins):
 
     return ds_bins, intervals
 
-
+# ----------------------------------------------------
+# CLEAN CODE:
 topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
 
 # repeat for 60 timesteps (TO BE USED AS `ds` mask)
@@ -470,6 +469,7 @@ topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
 topo_bins = topo_bins.rename({'concat_dims':'time'})
 topo_bins['time'] = ds.time
 
+# ----------------------------------------------------
 
 
 topo = topo.to_dataset()
@@ -483,23 +483,18 @@ topo_bins = xr.concat([topo.where(
 )
 topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
 
-
-
-
-
-
-
-
+# ----------------------------------------------------
+# CLEAN CODE
 # for each of the 10 topography bins
 for i in range(10):
     dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
     dataArrays = [ds.holaps_evapotranspiration,
-               ds.modis_evapotranspiration,
-               ds.gleam_evapotranspiration]
+    ds.modis_evapotranspiration,
+    ds.gleam_evapotranspiration]
     colors = [h_col, m_col, g_col]
     titles = ["holaps_evapotranspiration",
-              "modis_evapotranspiration",
-              "gleam_evapotranspiration"]
+    "modis_evapotranspiration",
+    "gleam_evapotranspiration"]
     kwargs = {"vmin":0,"vmax":3.5}
     fig = plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs)
 
@@ -507,6 +502,12 @@ for i in range(10):
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
     # fig.savefig(f'figs/elevation_bin{i}.png')
+    # ----------------------------------------------------
+
+
+
+
+
 
 
 
@@ -556,43 +557,10 @@ import matplotlib.patches as mpatches
 from shapely.geometry.polygon import LinearRing
 
 
-# whole
-region = dict(lonmin=32.6,
-    lonmax=51.8,
-    latmin=-5.0,
-    latmax=15.2,
-)
 
-from collections import namedtuple
-Region = namedtuple('Region',field_names=['lonmin','lonmax','latmin','latmax'])
 
-region = Region(
-    lonmin=32.6,
-    lonmax=51.8,
-    latmin=-5.0,
-    latmax=15.2,
-)
+from engineering.regions import regions
 
-highlands_region = Region(
-    lonmin=35,
-    lonmax=40,
-    latmin=5.5,
-    latmax=12.5
-    )
-
-lake_vict_region = Region(
-    lonmin=32.6,
-    lonmax=38.0,
-    latmin=-5.0,
-    latmax=2.5
-    )
-
-lowland_region = Region(
-    lonmin=32.6,
-    lonmax=42.5,
-    latmin=0.0,
-    latmax=12
-)
 
 
 def plot_geog_location(region):
@@ -622,20 +590,17 @@ def plot_geog_location(region):
     return fig
 
 
-def plot_all_regions():
-    fig = plot_geog_location(region)
-    plt.gca().set_title('ALL_region')
-    fig.savefig('figs/ALL_region_location.png')
-    fig = plot_geog_location(highlands_region)
-    plt.gca().set_title('highlands_region')
-    fig.savefig('figs/highlands_region_location.png')
-    fig = plot_geog_location(lake_vict_region)
-    plt.gca().set_title('lake_vict_region')
-    fig.savefig('figs/lake_vict_region_location.png')
-    fig = plot_geog_location(lowland_region)
-    plt.gca().set_title('lowland_region')
-    fig.savefig('figs/lowland_region_region_location.png')
+def plot_all_regions(regions):
+    """ """
+    for region in regions:
+        fig = plot_geog_location(region)
+        plt.gca().set_title(region.name)
+        fig.savefig(f'figs/{region.name}.png')
 
+    return
+
+# GET THIS TO WORK
+#
 def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
     """
     Note:
@@ -655,91 +620,11 @@ def plot_polygon(fig, lonmin, lonmax, latmin, latmax):
 
     return fig
 #
-# ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
-# ax = plt.subplot(projection=cartopy.crs.PlateCarree())
-# ax.add_feature(cpf.COASTLINE)
-# ax.add_feature(cpf.BORDERS, linestyle=':')
-# ax.add_feature(cpf.LAKES)
-# ax.set_extent([lonmin, lonmax, latmin, latmax])
-# # plot the lat lon labels
-# # https://scitools.org.uk/cartopy/docs/v0.15/examples/tick_labels.html
-# # https://stackoverflow.com/questions/49956355/adding-gridlines-using-cartopy
-# xticks = np.linspace(lonmin, lonmax, 5)
-# yticks = np.linspace(latmin, latmax, 5)
-# ax.set_xticks(xticks, crs=cartopy.crs.PlateCarree())
-# ax.set_yticks(yticks, crs=cartopy.crs.PlateCarree())
-# lon_formatter = LongitudeFormatter(zero_direction_label=True)
-# lat_formatter = LatitudeFormatter()
-# ax.xaxis.set_major_formatter(lon_formatter)
-# ax.yaxis.set_major_formatter(lat_formatter)
-#
-# lons = [lake_vict_region['latmin'], lake_vict_region['latmin'], lake_vict_region['latmax'], lake_vict_region['latmax']]
-# lats = [lake_vict_region['lonmin'], lake_vict_region['lonmax'], lake_vict_region['lonmax'], lake_vict_region['lonmin']]
-# ax.fill(lons, lats, color='coral', transform=cartopy.crs.PlateCarree(), alpha=0.4)
-# # ring = LinearRing(list(zip(lons, lats)))
-# # ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='none', edgecolor='black')
 
-lake_vict_region = dict(lonmin=32.6,
-                        lonmax=38.0,
-                        latmin=-5.0,
-                        latmax=2.5,
-                    )
-highlands_region = dict(lonmin=35,
-                        lonmax=40,
-                        latmin=5.5,
-                        latmax=12.5,
-                    )
-
-fig = plot_geog_location(region['lonmin'],region['lonmax'],region['latmin'],region['latmax'])
-
-fig = plot_polygon(fig, lake_vict_region['lonmin'],lake_vict_region['lonmax'],lake_vict_region['latmin'],lake_vict_region['latmax'])
-fig.suptitle('Whole Region')
-fig.savefig('figs/whole_region.png')
-
-fig = plot_geog_location(lake_vict_region['lonmin'],lake_vict_region['lonmax'],lake_vict_region['latmin'],lake_vict_region['latmax'])
-fig.suptitle('Lake Victoria Region')
-fig.savefig('figs/lake_vict_region.png')
-
-fig = plot_geog_location(highlands_region['lonmin'],highlands_region['lonmax'],highlands_region['latmin'],highlands_region['latmax'])
-fig.suptitle('Ethiopian Highlands Region')
-fig.savefig('figs/highlands_region.png')
 
 
 # ax.get_xlim(), ax.get_ylim()
 # cb = fig.colorbar(hb, ax=ax)
-
-from mpl_toolkits.basemap import Basemap
-from matplotlib.patches import Polygon
-# OLD CODE (basemap)
-from itertools import chain
-
-def draw_map(m, scale=0.2):
-    # draw a shaded-relief image
-    m.shadedrelief(scale=scale)
-
-    # lats and longs are returned as a dictionary
-    lats = m.drawparallels(np.linspace(-90, 90, 13))
-    lons = m.drawmeridians(np.linspace(-180, 180, 13))
-
-    # keys contain the plt.Line2D instances
-    lat_lines = chain(*(tup[1][0] for tup in lats.items()))
-    lon_lines = chain(*(tup[1][0] for tup in lons.items()))
-    all_lines = chain(lat_lines, lon_lines)
-
-    # cycle through these lines and set the desired style
-    for line in all_lines:
-        line.set(linestyle='-', alpha=0.3, color='w')
-
-def plot_bounding_box_map(latmin,latmax,lonmin,lonmax):
-    fig = plt.figure(figsize=(8, 6), edgecolor='w')
-    m = Basemap(projection='cyl', resolution='h',
-                llcrnrlat=latmin, urcrnrlat=latmax,
-                llcrnrlon=lonmin, urcrnrlon=lonmax, )
-    draw_map(m)
-    return fig
-
-plot_bounding_box_map(latmin,latmax,lonmin,lonmax)
-
 
 #%%
 # ------------------------------------------------------------------------------
@@ -788,27 +673,70 @@ fig.savefig('figs/spatial_mean_timseries.png')
 # Plot the Seasonality of different products
 # ------------------------------------------------------------------------------
 
-mthly_mean = ds.groupby('time.month').mean(dim='time')
-seasonality = mthly_mean.mean(dim=['lat','lon'])
+from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 
-fig, ax = plt.subplots(figsize=(12,8))
-seasonality.to_dataframe().plot(ax=ax)
-ax.set_title('Spatial Mean Seasonal Time Series from the ET Products')
+
+def calculate_monthly_mean(ds):
+    assert 'time' in [dim for dim in ds.dims.keys()], f"Time must be in the dataset dimensions. Currently: {[dim for dim in ds.dims.keys()]}"
+    return ds.groupby('time.month').mean(dim='time')
+
+
+def calculate_spatial_mean(ds):
+    assert ('lat' in [dim for dim in ds.dims.keys()]) & ('lon' in [dim for dim in ds.dims.keys()]), f"Must have 'lat' 'lon' in the dataset dimensisons"
+    return ds.mean(dim=['lat','lon'])
+
+
+mthly_ds = calculate_monthly_mean(ds)
+seasonality = calculate_spatial_mean(mthly_ds)
+
+
+def plot_seasonality(ds, ylabel=None):
+    """ """
+    mthly_ds = calculate_monthly_mean(ds)
+    seasonality = calculate_spatial_mean(mthly_ds)
+
+    fig, ax = plt.subplots(figsize=(12,8))
+    seasonality.to_dataframe().plot(ax=ax)
+    ax.set_title('Spatial Mean Seasonal Time Series')
+    plt.legend()
+
+    if ylabel not None:
+        ax.set_ylabel(ylabel)
+
+    return fig, ax
+
+fig,ax = plot_seasonality(ds)
 ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
-plt.legend()
 fig.savefig('figs/spatial_mean_seasonality.png')
+
+
 
 # ------------------------------------------------------------------------------
 # Plot the NORMALISED Seasonality (% of the total)
 # ------------------------------------------------------------------------------
 
-fig, ax = plt.subplots(figsize=(12,8))
-norm_seasonality = seasonality.apply(lambda x: (x / x.sum(dim='month'))*100)
-norm_seasonality.to_dataframe().plot(ax=ax)
-ax.set_title('Normalised Seasonality of Data Products')
-ax.set_ylabel('Contribution of that month ET to total ET (%)')
-plt.legend()
+def plot_normalised_seasonality(monthly_ds):
+    """ Normalise the seasonality by each months contribution to the annual mean total.
+
+    Arguments:
+    ---------
+    :monthly_ds (xr.Dataset)
+        the dataset that has been converted into monthly means
+    """
+    assert False, "How to extend the seasonality to two years to view the DJF period"
+    fig, ax = plt.subplots(figsize=(12,8))
+    norm_seasonality = monthly_ds.apply(lambda x: (x / x.sum(dim='month'))*100)
+    # convert to dataframe (useful for plotting values)
+    norm_seasonality.to_dataframe().plot(ax=ax)
+    ax.set_title('Normalised Seasonality')
+    ax.set_ylabel('Contribution of month to annual total (%)')
+    plt.legend()
+
+    return fig
+
+fig = plot_normalised_seasonality(seasonality)
 fig.savefig('figs/spatial_mean_seasonality_normed.png')
+
 
 
 #%%
@@ -816,77 +744,37 @@ fig.savefig('figs/spatial_mean_seasonality_normed.png')
 # Analysis by Elevation: group by elevation
 # ------------------------------------------------------------------------------
 
-
-
 # ------------------------------------------------------------------------------
-# GROUPBY
-topo.name = 'elevation'
-topo = topo.to_dataset()
-bins = topo.groupby_bins(group='elevation',bins=10)
-intervals = bins.mean().elevation_bins.values
-left_bins = [interval.left for interval in intervals]
+# USING BASEMAP (depreceated code)
+# ------------------------------------------------------------------------------
+from mpl_toolkits.basemap import Basemap
+from matplotlib.patches import Polygon
+# OLD CODE (basemap)
+from itertools import chain
 
-# plot to check WHERE the bins are
-fig, ax = plt.subplots(figsize=(12,8))
-sns.distplot(t,ax=ax, color=sns.color_palette()[-1])
-[ax.axvline(bin, ymin=0,ymax=1,color='r',label=f'Bin') for bin in left_bins];
+def draw_map(m, scale=0.2):
+    # draw a shaded-relief image
+    m.shadedrelief(scale=scale)
 
-# [bins for bins in
-topo_bins = xr.concat([topo.where(
-                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
-            )
-            for interval in intervals ]
-)
-topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
+    # lats and longs are returned as a dictionary
+    lats = m.drawparallels(np.linspace(-90, 90, 13))
+    lons = m.drawmeridians(np.linspace(-180, 180, 13))
 
-# repeat for 60 timesteps
-topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
-topo_bins = topo_bins.rename({'concat_dims':'time'})
-topo_bins['time'] = ds_valid.time
+    # keys contain the plt.Line2D instances
+    lat_lines = chain(*(tup[1][0] for tup in lats.items()))
+    lon_lines = chain(*(tup[1][0] for tup in lons.items()))
+    all_lines = chain(lat_lines, lon_lines)
 
-# select and plot the values at different elevations
-topo_bins.isel(elevation_bins=0)
+    # cycle through these lines and set the desired style
+    for line in all_lines:
+        line.set(linestyle='-', alpha=0.3, color='w')
 
-#
-# ds_valid.where(topo_bins.isel(elevation_bins=0).elevation.notnull())
+def plot_bounding_box_map(latmin,latmax,lonmin,lonmax):
+    fig = plt.figure(figsize=(8, 6), edgecolor='w')
+    m = Basemap(projection='cyl', resolution='h',
+                llcrnrlat=latmin, urcrnrlat=latmax,
+                llcrnrlon=lonmin, urcrnrlon=lonmax, )
+    draw_map(m)
+    return fig
 
-def get_unmasked_data(dataArray, dataMask):
-    """ """
-    return dataArray.where(dataMask)
-
-
-    # data = ds_valid.where(
-    #  topo_bins.isel(elevation_bins=i).elevation.notnull()
-    # ).holaps_evapotranspiration.mean(dim='time')
-
-h_col = sns.color_palette()[0]
-m_col = sns.color_palette()[1]
-g_col = sns.color_palette()[2]
-colors = [h_col, m_col, g_col]
-kwargs = {"vmin":0,"vmax":3.5}
-interval_ranges = [(interval.left, interval.right) for interval in intervals]
-
-for i in range(10):
-    scale=1.5
-    fig,axs = plt.subplots(2, 3, figsize=(12*scale,8*scale))
-    dataMask = topo_bins.isel(elevation_bins=i).elevation.notnull()
-
-    for j, dataset in enumerate(['holaps','modis','gleam']):
-        dataArray = ds_valid[f'{dataset}_evapotranspiration']
-        dataArray = get_unmasked_data(dataArray.mean(dim='time'), dataMask)
-        color = colors[j]
-        # get the axes that correspond to the different rows
-        ax_map = axs[0,j]
-        ax_map.set_title(f'{dataset} Evapotranspiration')
-        ax_hist = axs[1,j]
-        ax_hist.set_ylim([0,1.1])
-        ax_hist.set_xlim([0,7])
-        # plot the maps
-        dataArray.mean(dim='time').plot(ax=ax_map,**kwargs)
-        # plot the histograms
-        d = drop_nans_and_flatten(dataArray)
-        sns.distplot(d, ax=ax_hist,color=color)
-
-    elevation_range = interval_ranges[i]
-    fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
-    fig.savefig(f'figs/elevation_bin{i}.png')
+plot_bounding_box_map(latmin,latmax,lonmin,lonmax)

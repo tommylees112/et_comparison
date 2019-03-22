@@ -1,12 +1,20 @@
-from collections import namedtuple
 import xarray as xr
 import numpy as np
 
+from collections import namedtuple
 
 Region = namedtuple('Region',field_names=['region_name','lonmin','lonmax','latmin','latmax'])
 
 def create_regions():
     """ hardcoded region creator object and """
+
+    all_region = Region(
+        region_name="all_region",
+        lonmin = 32.6,
+        lonmax = 51.8,
+        latmin = -5.0,
+        latmax = 15.2,
+    )
 
     highlands_region = Region(
         region_name="highlands_region",
@@ -32,9 +40,7 @@ def create_regions():
         latmax=12
     )
 
-    return highlands_region, lake_vict_region, lowland_region
-
-
+    return [all_region, highlands_region, lake_vict_region, lowland_region]
 
 
 def select_bounding_box_xarray(ds, region):
@@ -61,3 +67,8 @@ def select_bounding_box_xarray(ds, region):
     latmin = region.latmin
     latmax = region.latmax
     return ds.sel(lat=slice(latmin, latmax), lon=slice(lonmin, lonmax))
+
+
+
+# RUN THE create_regions() function to get access to regions
+regions = create_regions()

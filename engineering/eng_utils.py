@@ -6,6 +6,21 @@ import os
 
 
 # ------------------------------------------------------------------------------
+# Collapsing Time Dimensions 
+# ------------------------------------------------------------------------------
+
+
+def calculate_monthly_mean(ds):
+    assert 'time' in [dim for dim in ds.dims.keys()], f"Time must be in the dataset dimensions. Currently: {[dim for dim in ds.dims.keys()]}"
+    return ds.groupby('time.month').mean(dim='time')
+
+
+def calculate_spatial_mean(ds):
+    assert ('lat' in [dim for dim in ds.dims.keys()]) & ('lon' in [dim for dim in ds.dims.keys()]), f"Must have 'lat' 'lon' in the dataset dimensisons"
+    return ds.mean(dim=['lat','lon'])
+
+
+# ------------------------------------------------------------------------------
 # Lookup values from xarray in a dict
 # ------------------------------------------------------------------------------
 
