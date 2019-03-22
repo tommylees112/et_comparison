@@ -12,6 +12,8 @@ import itertools
 import warnings
 import os
 
+import pickle
+
 import cartopy
 from shapely import geometry
 

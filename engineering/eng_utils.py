@@ -82,13 +82,6 @@ def bin_dataset(ds, group_var, n_bins):
     left_bins = [interval.left for interval in intervals]
     # use bin locations to create mask variables of those values inside that
     ds_bins = create_new_binned_dimensions(ds, group_var, intervals)
-    # ds_bins = xr.concat([ds.where(
-    #                              (ds[group_var] > interval.left) & (ds[group_var] < interval.right)
-    #                            )
-    #                     for interval in intervals
-    #                    ]
-    # )
-    # ds_bins = ds_bins.rename({'concat_dims':f'{group_var}_bins'})
 
     return ds_bins, intervals
 

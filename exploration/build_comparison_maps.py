@@ -8,6 +8,7 @@ import xesmf as xe # for regridding
 from scipy.stats import pearsonr
 from scipy import stats
 import geopandas as gpd
+import pickle
 
 import itertools
 import warnings
@@ -424,13 +425,6 @@ fig.savefig('figs/topo_histogram_quintiles.png')
 from engineering.eng_utils import bin_dataset, pickle_files
 from plotting.plots import plot_masked_spatial_and_hist
 
-#
-# with open(BASE_DATA_DIR / 'intervals_topo1.pickle', 'wb') as f:
-#     pickle.dump(intervals, f)
-# with open(BASE_DATA_DIR / 'topo_bins1.pickle', 'wb') as f:
-#     pickle.dump(topo_bins, f)
-
-
 # CLEAN CODE:
 try:
     # try opening already saved files
@@ -443,6 +437,12 @@ except:
         topo = topo.to_dataset(name='elevation')
 
     topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
+
+    # repeat for 60 timesteps (TO BE USED AS `ds` mask)
+    topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+    topo_bins = topo_bins.rename({'concat_dims':'time'})
+    topo_bins['time'] = ds.time
+
     filepaths = [BASE_DATA_DIR / 'intervals_topo1.pickle', BASE_DATA_DIR / 'topo_bins1.pickle']
     vars = [intervals, topo_bins]
     pickle_files(filepaths, vars)
@@ -451,14 +451,8 @@ except:
 
 interval_ranges = [(interval.left, interval.right) for interval in intervals]
 
-# repeat for 60 timesteps (TO BE USED AS `ds` mask)
-topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
-topo_bins = topo_bins.rename({'concat_dims':'time'})
-topo_bins['time'] = ds.time
-
 # ----------------------------------------------------
 # CLEAN CODE
-
 def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
     """ SPATIAL and HISTOGRAM plots to show the conditional distributions given
          a particular mask.
