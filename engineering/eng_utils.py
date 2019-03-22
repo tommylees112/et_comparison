@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import os
-
+import pickle
+from pathlib import Path
 
 # ------------------------------------------------------------------------------
 # Working with Masks (subsets of your data)
@@ -235,3 +236,16 @@ def create_flattened_dataframe_of_values(h,g,m):
             modis=m_
         ))
     return df
+
+
+# ------------------------------------------------------------------------------
+# General utils
+# ------------------------------------------------------------------------------
+
+def pickle_files(filepaths, vars):
+    """ """
+    assert len(filepaths) == len(vars), f"filepaths should be same size as vars because each variable needs a filepath! currently: len(filepaths): {len(filepaths)} len(vars): {len(vars)}"
+
+    for filepath in filepaths:
+        with open(filepath, 'wb') as f:
+            pickle.dump(intervals, f)

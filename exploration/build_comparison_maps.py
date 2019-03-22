@@ -394,8 +394,70 @@ colors = [h_col, m_col, g_col]
 
 
 from engineering.eng_utils import get_unmasked_data
-from plotting.plots import plot_marginal_distribution, plot_masked_spatial_and_hist
+from plotting.plots import plot_marginal_distribution, plot_mean_time
+from plotting.plots import plot_masked_spatial_and_hist
 
+
+
+topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
+
+# ------------------------------------------------------------------------------
+# 1. plot topo histogram
+title = "Density Plot of Topography/Elevation in East Africa Region"
+fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
+fig.savefig('figs/topo_histogram.png')
+
+
+# 2. plot topo_histogram with quintiles
+# get the qunitile values
+fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
+# create and plot the qunitiles
+qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
+[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
+
+fig.savefig('figs/topo_histogram_quintiles.png')
+
+# ----------------------------------------------------
+# TOPO CLEANING
+# ----------------------------------------------------
+
+from engineering.eng_utils import bin_dataset, pickle_files
+from plotting.plots import plot_masked_spatial_and_hist
+
+#
+# with open(BASE_DATA_DIR / 'intervals_topo1.pickle', 'wb') as f:
+#     pickle.dump(intervals, f)
+# with open(BASE_DATA_DIR / 'topo_bins1.pickle', 'wb') as f:
+#     pickle.dump(topo_bins, f)
+
+
+# CLEAN CODE:
+try:
+    # try opening already saved files
+    topo_bins = xr.open_dataset(BASE_DATA_DIR/"topo_bins1.nc")
+    with open(BASE_DATA_DIR / 'intervals_topo1.pickle', 'rb') as f:
+        intervals = pickle.load(f)
+
+except:
+    if not isinstance(topo, xr.Dataset):
+        topo = topo.to_dataset(name='elevation')
+
+    topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
+    filepaths = [BASE_DATA_DIR / 'intervals_topo1.pickle', BASE_DATA_DIR / 'topo_bins1.pickle']
+    vars = [intervals, topo_bins]
+    pickle_files(filepaths, vars)
+
+    topo_bins.to_netcdf(BASE_DATA_DIR / 'topo_bins1.nc')
+
+interval_ranges = [(interval.left, interval.right) for interval in intervals]
+
+# repeat for 60 timesteps (TO BE USED AS `ds` mask)
+topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
+topo_bins = topo_bins.rename({'concat_dims':'time'})
+topo_bins['time'] = ds.time
+
+# ----------------------------------------------------
+# CLEAN CODE
 
 def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs):
     """ SPATIAL and HISTOGRAM plots to show the conditional distributions given
@@ -427,7 +489,7 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
         color = colors[j]
         title = titles[j]
 
-        ax_map.set_title(f'{dataset} Evapotranspiration')
+        ax_map.set_title(f'{dataArray.name}')
         ylim = [0,1.1]; xlim = [0,7]
         ax_hist.set_ylim(ylim)
         ax_hist.set_xlim(xlim)
@@ -435,64 +497,11 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
         # plot the map
         plot_mean_time(dataArray, ax_map, add_colorbar=True, **kwargs)
         # plot the histogram
-        plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataset)
-        plot_masked_histogram(ax_hist, dataArray, color, dataset)
+        plot_marginal_distribution(dataArray, color, ax=ax_hist, title=None, xlabel=dataArray.name)
+        # plot_masked_histogram(ax_hist, dataArray, color, dataset)
 
     return fig
 
-
-topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
-
-# ------------------------------------------------------------------------------
-# 1. plot topo histogram
-title = "Density Plot of Topography/Elevation in East Africa Region"
-fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
-fig.savefig('figs/topo_histogram.png')
-
-
-# 2. plot topo_histogram with quintiles
-# get the qunitile values
-fig, ax = plot_marginal_distribution(topo, color=sns.color_palette()[-1], ax=None, title=title, xlabel='elevation')
-# create and plot the qunitiles
-qs = [float(topo.quantile(q=q).values) for q in np.arange(0,1.2,0.2)]
-[ax.axvline(q, ymin=0,ymax=1,color='r',label=f'Quantile') for q in qs]
-
-fig.savefig('figs/topo_histogram_quintiles.png')
-
-# ----------------------------------------------------
-# TOPO CLEANING
-# ----------------------------------------------------
-
-from engineering.eng_utils import bin_dataset
-
-# CLEAN CODE:
-if not isinstance(topo, xr.Dataset):
-    topo = topo.to_dataset(name='elevation')
-
-topo_bins, intervals = bin_dataset(ds=topo, group_var='elevation', n_bins=10)
-interval_ranges = [(interval.left, interval.right) for interval in intervals]
-
-# repeat for 60 timesteps (TO BE USED AS `ds` mask)
-topo_bins = xr.concat([topo_bins for _ in range(len(ds_valid.time))])
-topo_bins = topo_bins.rename({'concat_dims':'time'})
-topo_bins['time'] = ds.time
-
-# ----------------------------------------------------
-
-
-topo = topo.to_dataset()
-bins = topo.groupby_bins(group='elevation',bins=10)
-intervals = bins.mean().elevation_bins.values
-left_bins = [interval.left for interval in intervals]
-topo_bins = xr.concat([topo.where(
-                (topo['elevation'] > interval.left) & (topo['elevation'] < interval.right)
-            )
-            for interval in intervals ]
-)
-topo_bins = topo_bins.rename({'concat_dims':'elevation_bins'})
-
-# ----------------------------------------------------
-# CLEAN CODE
 
 # for each of the 10 topography bins
 for i in range(10):
@@ -509,7 +518,7 @@ for i in range(10):
         "gleam_evapotranspiration"
     ]
     kwargs = {"vmin":0,"vmax":3.5}
-    fig = plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5, **kwargs)
+    fig = plot_masked_spatial_and_hist(dataMask, dataArrays, colors, titles, scale=1.5, **kwargs)
 
     # add the figure titles and save figures
     elevation_range = interval_ranges[i]
@@ -544,14 +553,9 @@ for i in range(10):
         # plot the histograms
         plot_masked_histogram(ax_hist, dataArray, color, dataset, ylim=[0,1.1],xlim=[0,7])
 
-
-
     elevation_range = interval_ranges[i]
     fig.suptitle(f"Evapotranspiration in elevation range: {elevation_range} ")
     fig.savefig(f'figs/elevation_bin{i}.png')
-
-
-
 
 #%%
 # ------------------------------------------------------------------------------
@@ -561,85 +565,22 @@ for i in range(10):
 # https://stackoverflow.com/questions/14589600/matplotlib-insets-in-subplots
 #
 
-import cartopy
-import cartopy.feature as cpf
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-
-
-# import cartopy.io.img_tiles as cimgt
-
-# import matplotlib.patches as mpatches
-from shapely.geometry.polygon import LinearRing
-
-
-from engineering.regions import regions
-from plotting.plots import plot_geog_location
-
-
-
-def plot_all_regions(regions):
-    """ """
-    for region in regions:
-        fig = plot_geog_location(region, rivers=True, borders=True)
-        plt.gca().set_title(region.name)
-        fig.savefig(f'figs/{region.name}.png')
-
-    return
-
-# GET THIS TO WORK
-#
-def plot_polygon(ax, sub_region):
-    """
-    Note:
-    ----
-    order is important:
-        lower-left, upper-left, upper-right, lower-right
-        2 -- 3
-        |    |
-        1 -- 4
-    """
-    # ax = fig.axes[0]
-    lons = [sub_region.latmin, sub_region.latmin, sub_region.latmax, sub_region.latmax]
-    lats = [sub_region.lonmin, sub_region.lonmax, sub_region.lonmax, sub_region.lonmin]
-    ring = LinearRing(list(zip(lons, lats)))
-    ax.add_geometries([ring], cartopy.crs.PlateCarree(), facecolor='b', edgecolor='black')
-
-
-    return fig, ax
-
-
-def add_points_to_map(ax, geodf):
-    """ Add the point data stored in `geodf.geometry` as points to ax
-    Arguments:
-    ---------
-    : geodf (geopandas.GeoDataFrame)
-        gpd.GeoDataFrame with a `geometry` column containing shapely.Point geoms
-    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
-    """
-    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
-    points = geodf.geometry.values
-    ax.scatter([point.x for point in points],
-           [point.y for point in points],
-           transform=ccrs.PlateCarree())
-
-    return ax
-
 # CLEAN CODE
+from engineering.regions import regions
+from plotting.plots import plot_geog_location, plot_stations_on_region_map
+from plotting.plots import add_points_to_map, add_sub_region_box
+
 all_region = regions[0]
 highlands = regions[1]
 
-from plotting.plots import plot_stations_on_region_map, add_points_to_map
-
+# plot the stations
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
-region = highlands
-geom = geometry.box(minx=region.lonmin,maxx=region.lonmax,miny=region.latmin,maxy=region.latmax)
-ax.add_geometries(geom, crs=cartopy.crs.PlateCarree())
 
-fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
-plot_polygon(ax, highlands)
+# plot the regions
+fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
+color = (0.12156862745098039, 0.4666666666666667, 0.7058823529411765)
+add_sub_region_box(ax, highlands, color=color)
 
-# ax.get_xlim(), ax.get_ylim()
-# cb = fig.colorbar(hb, ax=ax)
 
 #%%
 # ------------------------------------------------------------------------------

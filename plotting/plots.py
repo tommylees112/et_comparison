@@ -10,15 +10,11 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 # Geographic Plotting
-import cartopy.crs as ccrs
 import cartopy
-import cartopy.feature as cpf
+# import cartopy.crs as ccrs
+# import cartopy.feature as cpf
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-import cartopy.io.img_tiles as cimgt
-import matplotlib.patches as mpatches
-from shapely.geometry.polygon import LinearRing
 
 
 import itertools
@@ -27,6 +23,9 @@ import os
 # Custom functions
 from engineering.eng_utils import drop_nans_and_flatten
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean, create_double_year
+
+
+from engineering.eng_utils import get_unmasked_data
 
 
 # ------------------------------------------------------------------------------
@@ -42,7 +41,7 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
     # flatten the DataArray
     da_flat = drop_nans_and_flatten(DataArray)
     # plot the histogram
-    sns.distplot(da_flat, ax=ax, color=h_col, **kwargs)
+    sns.distplot(da_flat, ax=ax, color=color, **kwargs)
     warnings.warn('Hardcoding the values of the units becuase they should have already been converted to mm day-1')
 
     if title is None:
@@ -269,11 +268,11 @@ def plot_geog_location(region, lakes=False, borders=False, rivers=False):
     """
     lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
     ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
-    ax.add_feature(cpf.COASTLINE)
+    ax.add_feature(cartopy.feature.COASTLINE)
     if borders:
-        ax.add_feature(cpf.BORDERS, linestyle=':')
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
     if lakes:
-        ax.add_feature(cpf.LAKES)
+        ax.add_feature(cartopy.feature.LAKES)
     if rivers:
         # assert False, "Rivers are not yet working in this function"
         water_color = '#3690f7'
@@ -312,7 +311,7 @@ def add_points_to_map(ax, geodf):
     points = geodf.geometry.values
     ax.scatter([point.x for point in points],
                [point.y for point in points],
-               transform=ccrs.PlateCarree())
+               transform=cartopy.crs.PlateCarree())
 
     return ax
 
@@ -335,6 +334,35 @@ def plot_stations_on_region_map(region, station_location_df):
     ax =  add_points_to_map(ax, station_location_df)
 
     return fig, ax
+
+
+def add_sub_region_box(ax, subregion, color):
+    """ Plot a box for the subregion on the cartopy axes.
+    TODO: implement a check where the subregion HAS TO BE inside the axes limits
+
+    Arguments:
+    ---------
+    : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
+        axes that you are plotting on
+    : subregion (Region namedtuple)
+        region of interest bounding box defined in engineering/regions.py
+    """
+    geom = geometry.box(minx=subregion.lonmin,maxx=subregion.lonmax,miny=subregion.latmin,maxy=subregion.latmax)
+    ax.add_geometries([geom], crs=cartopy.crs.PlateCarree(), color=color, alpha=0.3)
+    return ax
+
+
+def plot_all_regions(regions):
+    """
+    : regions (list, tuple)
+        list of Region objects to plot geographic locations
+    """
+    for region in regions:
+        fig = plot_geog_location(region, rivers=True, borders=True)
+        plt.gca().set_title(region.name)
+        fig.savefig(f'figs/{region.name}.png')
+
+    return
 
 
 
@@ -520,12 +548,12 @@ def plot_xarray_on_map(da,borders=True,coastlines=True,**kwargs):
     mid_lon = np.mean(da.lon.values)
     # create the base layer
     fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.Orthographic(mid_lon, mid_lat))
-    # ax = plt.axes(projection=ccrs.Orthographic(mid_lon, mid_lat))
+    ax = fig.add_subplot(1, 1, 1, projection=cartopy.crs.Orthographic(mid_lon, mid_lat))
+    # ax = plt.axes(projection=cartopy.crs.Orthographic(mid_lon, mid_lat))
 
     vmin = kwargs.pop('vmin', None)
     vmax = kwargs.pop('vmax', None)
-    da.plot(ax=ax, transform=ccrs.PlateCarree(),vmin=vmin, vmax=vmax);
+    da.plot(ax=ax, transform=cartopy.crs.PlateCarree(),vmin=vmin, vmax=vmax);
 
     ax.coastlines();
     ax.add_feature(cartopy.feature.BORDERS,linestyle=':');
