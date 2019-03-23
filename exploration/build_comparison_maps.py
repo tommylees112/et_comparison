@@ -33,6 +33,7 @@ from engineering.eng_utils import bin_dataset, pickle_files
 from engineering.eng_utils import load_pickle, create_flattened_dataframe_of_values
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 from engineering.eng_utils import create_double_year
+from engineering.eng_utils import get_variables_for_comparison1
 
 
 # import data plotting functions
@@ -105,16 +106,20 @@ for evap_da in evap_das:
 xlabel='holaps'; ylabel='gleam'
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
-ds_comparisons
 
-for i, ds_comparison in ds_comparisons:
+
+from engineering.eng_utils import get_variables_for_comparison1
+vars_, ds_comparisons = get_variables_for_comparison1()
+
+
+for ds_comparison in ds_comparisons:
     xlabel = ds_comparison[0]
     ylabel = ds_comparison[1]
     da1 = ds.chirps_precipitation - ds[ds_comparison[0]]
     da2 = ds.chirps_precipitation - ds[ds_comparison[1]]
-    hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel='holaps', ylabel='gleam')
+    hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel=xlabel, ylabel=ylabel)
     fig = plt.gcf()
-    fig.savefig(f'figs/sns_hexplot_P-E_{xlabel}_vs_{ylabel}.png')
+    fig.savefig(BASE_FIG_DIR/f'sns_hexplot_P-E_{xlabel}_vs_{ylabel}.png')
 
 
 #%%

@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 import xesmf as xe # for regridding
 from scipy.stats import pearsonr
+from scipy import stats
 
 from pathlib import Path
 import itertools

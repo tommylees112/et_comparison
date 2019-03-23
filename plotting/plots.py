@@ -23,7 +23,7 @@ import os
 # Custom functions
 from engineering.eng_utils import drop_nans_and_flatten
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean, create_double_year
-
+from engineering.eng_utils import get_variables_for_comparison1
 
 from engineering.eng_utils import get_unmasked_data
 
@@ -359,23 +359,6 @@ def plot_seasonal_spatial_means(seasonal_da, **kwargs):
 # - plot_seasonal_comparisons_ET_diff
 # ------------------------------------------------------------------------------
 
-def get_variables_for_comparison1():
-    """ Return the variables for intercomparison ()
-    REturns:
-    -------
-    : variables (list)
-        list of strings of the variable names to create all combinations of
-    : comparisons (list)
-        list of strings. combinations of all the variables listed in variables
-    """
-    import itertools
-    variables = [
-     'holaps_evapotranspiration',
-     'gleam_evapotranspiration',
-     'modis_evapotranspiration',
-    ]
-    comparisons = [i for i in itertools.combinations(variables,2)]
-    return variables, comparisons
 
 
 

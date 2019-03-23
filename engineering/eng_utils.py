@@ -6,6 +6,30 @@ import os
 import pickle
 from pathlib import Path
 import warnings
+import itertools
+
+# ------------------------------------------------------------------------------
+# Working with Comparisons
+# ------------------------------------------------------------------------------
+
+def get_variables_for_comparison1():
+    """ Return the variables for intercomparison ()
+    REturns:
+    -------
+    : variables (list)
+        list of strings of the variable names to create all combinations of
+    : comparisons (list)
+        list of strings. combinations of all the variables listed in variables
+    """
+    import itertools
+    variables = [
+     'holaps_evapotranspiration',
+     'gleam_evapotranspiration',
+     'modis_evapotranspiration',
+    ]
+    comparisons = [i for i in itertools.combinations(variables,2)]
+    return variables, comparisons
+
 
 # ------------------------------------------------------------------------------
 # Working with Masks (subsets of your data)
