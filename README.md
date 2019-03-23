@@ -7,13 +7,14 @@ https://www.ntsg.umt.edu/project/modis/mod16.php
 - [-] Convert GLEAM ET from mm/day -> mm/month
 - [x] OR convert MODIS ET -> mm/day
 - [x] Copy the HOLAPS mask to other datasets
-- [] CLEAN the exploration code into more useful set of functions (too much copy+paste ...)
-- [] New structure for the code::
+- [x] CLEAN the exploration code into more useful set of functions (too much copy+paste ...)
+- [x] New structure for the code
+- [ ] Do P - E calculations (spatial, temporal, subsets)
 ```
 run.py
 engineer
     - preprocessing.py [BaseCleaner > HolapsCleaner,ModisCleaner,GleamCleaner]
-    - engineer.py 
+    - engineer.py
     - plotting.py
 ```
 

@@ -28,8 +28,42 @@ from preprocessing.utils import drop_nans_and_flatten
 # from preprocessing.gleam_cleaner import GleamCleaner
 # from preprocessing.modis_cleaner import ModisCleaner
 
+# import data engineering functions
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+from engineering.regions import regions
+from engineering.eng_utils import get_lookup_val, mask_multiple_conditions
+from engineering.regions import Region, create_regions, select_bounding_box_xarray
+from engineering.eng_utils import get_lookup_val, drop_nans_and_flatten
+from engineering.eng_utils import get_unmasked_data
+from engineering.eng_utils import bin_dataset, pickle_files
+from engineering.eng_utils import load_pickle, create_flattened_dataframe_of_values
+from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
+from engineering.eng_utils import create_double_year
+
+
+# import data plotting functions
+from plotting.plots import plot_stations_on_region_map
+from plotting.plots import plot_seasonal_spatial_means
+from plotting.plots import plot_mean_spatial_differences_ET
+from plotting.plots import get_variables_for_comparison1, plot_mean_time
+from plotting.plots import plot_hexbin_comparisons
+from plotting.plots import plot_joint_plot_hex1, hexbin_jointplot_sns
+from plotting.plots import plot_xarray_on_map, plot_all_spatial_means
+from plotting.plots import plot_seasonal_comparisons_ET_diff
+from plotting.plots import plot_marginal_distribution
+from plotting.plots import plot_masked_spatial_and_hist
+from plotting.plots import plot_geog_location
+from plotting.plots import add_points_to_map, add_sub_region_box
+from plotting.plots import plot_seasonality
+from plotting.plots import plot_normalised_seasonality
+
+#
+from plotting.plot_utils import get_colors
+
+
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 BASE_DIR = Path('/soge-home/projects/crop_yield/et_comparison')
+BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting2')
 
 # clean data
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")

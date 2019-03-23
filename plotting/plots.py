@@ -44,11 +44,10 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
     sns.distplot(da_flat, ax=ax, color=color, **kwargs)
     warnings.warn('Hardcoding the values of the units becuase they should have already been converted to mm day-1')
 
-    if title is None:
-        ax.set_title('')
-    else:
+    if title == '':
         title= f'Density Plot of {DataArray.name} [mm day-1]'
-        ax.set_title(title)
+
+    ax.set_title(title)
 
     if xlabel == 'DEFAULT':
         xlabel = f'Mean Monthly {DataArray.name} [mm day-1]'
