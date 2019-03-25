@@ -25,6 +25,8 @@ sys.path.insert(0, "/soge-home/projects/crop_yield/et_comparison/")
 %load_ext autoreload
 
 from preprocessing.utils import drop_nans_and_flatten
+from preprocessing.utils import read_csv_point_data
+
 # from preprocessing.holaps_cleaner import HolapsCleaner
 # from preprocessing.gleam_cleaner import GleamCleaner
 # from preprocessing.modis_cleaner import ModisCleaner
@@ -88,6 +90,11 @@ h_col = sns.color_palette()[0]
 m_col = sns.color_palette()[1]
 g_col = sns.color_palette()[2]
 
+
+datasets = ['holaps', 'gleam', 'modis']
+evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
+
+
 lonmin=32.6
 lonmax=51.8
 latmin=-5.0
@@ -110,3 +117,7 @@ def create_flattened_dataframe_of_values(h,g,m):
 dist_df = create_flattened_dataframe_of_values(h,g,m)
 
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
+
+all_region = regions[0]
+highlands = regions[1]
+lake_victoria_region = regions[2]

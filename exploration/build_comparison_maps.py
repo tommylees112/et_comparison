@@ -58,12 +58,45 @@ from plotting.plot_utils import get_colors
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting2')
 
+datasets = ['holaps', 'gleam', 'modis']
+evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
+[h_col, m_col, g_col, c_col] = get_colors()
+
+#%%
+# ------------------------------------------------------------------------------
+# Working with Precipitation Data
+# ------------------------------------------------------------------------------
+
+
+drop_nans_and_flatten(da)
+
+from engineering.eng_utils import get_variables_for_comparison1
+vars_, ds_comparisons = get_variables_for_comparison1()
+col_lookup = dict(zip(evap_das, [h_col,g_col,m_col]))
+
+# Plot the comparison between the P-ET products
+for ds_comparison in ds_comparisons:
+    # get the xlabel and xcolour
+    xlabel = ds_comparison[0]
+    xcol = col_lookup[xlabel]
+    # get the ylabel and ycolour
+    ylabel = ds_comparison[1]
+    ycol = col_lookup[ylabel]
+    # get the dataarrays to compare
+    da1 = ds[ds_comparison[0]]
+    da2 = ds[ds_comparison[1]]
+    hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel=xlabel, ylabel=ylabel)
+
+hexbin_jointplot_sns()
+
+
+
+
 #%%
 # ------------------------------------------------------------------------------
 # Working with P-E
 # ------------------------------------------------------------------------------
-kwargs = {'vmin':,'vmax':}
-[h_col, m_col, g_col, c_col] = get_colors()
+# kwargs = {'vmin':,'vmax':}
 
 # plot marginal distribution of chirps
 fig,ax = plt.subplots()
@@ -80,6 +113,7 @@ fig.savefig(BASE_FIG_DIR/'chirps_marginal.png')
 #
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
+[h_col, m_col, g_col, c_col] = get_colors()
 
 for evap_da in evap_das:
     da = ds.chirps_precipitation - ds[evap_da]
@@ -97,7 +131,46 @@ for evap_da in evap_das:
     )
     ax.set_xlim([-10,10])
     ax.set_ylim([-0.05,0.7])
-    fig.savefig(BASE_FIG_DIR/'chirps-{evap_da}_marginal.png')
+    fig.savefig(BASE_FIG_DIR/f'chirps-{evap_da}_marginal.png')
+
+
+for ix, evap_da in enumerate(evap_das):
+# evap_da_ = ['gleam_evapotranspiration']
+# for ix, evap_da in enumerate(evap_das):
+    da = ds[evap_da]
+    a = drop_nans_and_flatten(da)
+    min, max, mean, median = a.min(), a.max(), a.mean(), np.median(a)
+    fig,ax=plt.subplots()
+    plot_marginal_distribution(
+        DataArray=da,
+        color=get_colors()[ix],
+        ax=ax,
+        title=f'{evap_da} \nMin: {min:.2f} Max: {max:.2f} Mean: {mean:.2f} Median: {median:.2f}',
+        xlabel='P - E [mm day-1]',
+        **{'kde':True}
+    )
+    ax.set_xlim([-0.1,10])
+    ax.set_ylim([-0.15,0.9])
+    fig.savefig(BASE_FIG_DIR/f'{evap_da}_marginal.png')
+
+
+# Calculate the P-E for each evaporation product
+all_ds = [ds.chirps_precipitation - ds[evap_da] for evap_da in evap_das]
+for i,da in enumerate(all_ds):
+    da.name = evap_das[i] + "_minus_P"
+P_E_ds = xr.merge(all_ds)
+
+
+# Plot spatial plots of the comparison between these P-ET
+variables, comparisons = get_variables_for_comparison1()
+kwargs = {'vmin':-2,'vmax':2}
+fig = plot_mean_spatial_differences_ET(P_E_ds, **kwargs)
+fig.suptitle('Comparison of Spatial Means between P-ET for different products')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_of_P-E_comparisons.png')
+
+fig = plot_mean_spatial_differences_ET(ds, **kwargs)
+fig.suptitle('Comparison of Spatial Means between E for different products')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_of_ET_comparisons.png')
 
 # does the anomaly go away in spatial means? one value per month (60 values)
 # how do the products vary by region ?
@@ -107,11 +180,10 @@ xlabel='holaps'; ylabel='gleam'
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
 
-
 from engineering.eng_utils import get_variables_for_comparison1
 vars_, ds_comparisons = get_variables_for_comparison1()
 
-
+# Plot the comparison between the P-ET products
 for ds_comparison in ds_comparisons:
     xlabel = ds_comparison[0]
     ylabel = ds_comparison[1]
@@ -120,6 +192,17 @@ for ds_comparison in ds_comparisons:
     hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel=xlabel, ylabel=ylabel)
     fig = plt.gcf()
     fig.savefig(BASE_FIG_DIR/f'sns_hexplot_P-E_{xlabel}_vs_{ylabel}.png')
+
+
+for ds_comparison in ds_comparisons:
+    xlabel = ds_comparison[0]
+    ylabel = ds_comparison[1]
+    da1 = ds[ds_comparison[0]]
+    da2 = ds[ds_comparison[1]]
+    hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel=xlabel, ylabel=ylabel)
+    fig = plt.gcf()
+    fig.savefig(BASE_FIG_DIR/f'sns_hexplot_COMPARE_{xlabel}_vs_{ylabel}.png')
+
 
 
 #%%
@@ -147,7 +230,7 @@ df = df.drop(columns='DATE')
 
 
 # do unit conversion (without your previous calcs)
-# blue nile metadata
+# blue nile metadata (FOR THE STATIONS)
 bn_meta = lookup_df.query('RiverName == "Blue Nile"')
 plot_stations_on_region_map(all_region, bn_meta)
 
@@ -155,7 +238,7 @@ plot_stations_on_region_map(all_region, bn_meta)
 drainage_area = bn_meta.DrainArLDD
 bn_stations = df[bn_meta.ID]
 
-#
+# turn the flow into mm day-1
 bn_stations = df[bn_meta.ID]
 for ID in bn_meta.ID:
     drainage_area = bn_meta.query(f'ID == "{ID}"').DrainArLDD.values[0]
@@ -168,10 +251,16 @@ for ID in bn_meta.ID:
 # ------------------------------------------------------------------------------
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 from engineering.eng_utils import get_lookup_val, mask_multiple_conditions
+from preprocessing.utils import read_csv_point_data
 
+# READ DATA
 # get location of files
 base_data_dir = Path("/soge-home/projects/crop_yield/EGU_compare")
 river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
+
+# gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
 
 
 # 1. add new coordinate from shapefile
@@ -190,6 +279,14 @@ r = get_lookup_val(xr_obj=river_ds, variable='river_basins',
         new_variable='basin_code', lookup_dict=lkup
 )
 
+# basin_codes = array([-0., 22., 23., 24., 26., 27., 28., 29., 30., 31., 32., 33., 34., 35., 58])
+fig,ax = plt.subplots(figsize=(12,10))
+bsn_msk = mask_multiple_conditions(r.basin_code, bsns[1:-1])
+subset = r.where(bsn_msk)
+subset.basin_code.plot.contourf(levels=14)
+fig.savefig(BASE_FIG_DIR/"basins_map.png")
+# r.sel(basin_code=slice(22,35)).basin_code.plot.contourf(levels=10)
+
 # 4. subset by multiple basins
 vals_to_keep = bsns[:3]
 da = r.basin_code
@@ -205,13 +302,16 @@ from plotting.plots import plot_stations_on_region_map
 
 # Plot NW most basins (more data)
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
-subset.basin_code.plot.contourf(levels=10, ax=ax, zorder=0)
+# subset.basin_code.plot.contourf(levels=10, ax=ax, zorder=0)
+blue_nile = r.where(r.basin_code == 23).basin_code.plot.contourf(levels=10, ax=ax, zorder=0, alpha=0.5,color='y', add_colorbar=False)
+fig.suptitle('Location of River Flow Station Measurements and the Blue Nile Basin shown')
+fig.savefig(BASE_FIG_DIR/'blue_nile_basin_and_stations_plot.png')
 
-#
-# fig,ax = plt.subplots()
+
+# Plot the mean evaporation over the basin of interest
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 blue_nile = r.where(r.basin_code == 23)
-blue_nile.holaps_evapotranspiration.mean(dim='time').plot(ax=ax, zorder=0)
+blue_nile.holaps_evapotranspiration.mean(dim='time').plot(ax=ax, zorder=0, alpha=0.5)
 
 
 def label_basins():
@@ -666,8 +766,8 @@ from plotting.plots import plot_normalised_seasonality
 
 fig,ax = plot_seasonality(ds, double_year=True)
 ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
-fig.savefig('figs/spatial_mean_seasonality.png')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality.png')
 
 
 fig = plot_normalised_seasonality(ds, double_year=True)
-fig.savefig('figs/spatial_mean_seasonality_normed.png')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_normed.png')

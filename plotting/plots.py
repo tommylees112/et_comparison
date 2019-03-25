@@ -127,7 +127,7 @@ def hexbin_jointplot_sns(d1, d2, col1, col2, bins='log', mincnt=0.5, xlabel='', 
     : mincnt (int, float)
         the minimum count for a value to be shown on the plot
     """
-    assert False, "Need to implement a colorbar and fix the colorbar values for all products (shouldn't matter too much because all products now have teh exact same number of pixels)"
+    # assert False, "Need to implement a colorbar and fix the colorbar values for all products (shouldn't matter too much because all products now have teh exact same number of pixels)"
     jp = sns.jointplot(d1, d2, kind="hex", joint_kws=dict(bins=bins, mincnt=mincnt))
     jp.annotate(stats.pearsonr)
 
@@ -315,7 +315,8 @@ def plot_normalised_seasonality(ds, double_year=False):
     """
     fig, ax = plt.subplots(figsize=(12,8))
     mthly_ds = calculate_monthly_mean(ds)
-    norm_seasonality = monthly_ds.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_seasonality = mthly_ds.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_seasonality = calculate_spatial_mean(norm_seasonality)
 
     if double_year:
         norm_seasonality = create_double_year(norm_seasonality)
@@ -366,15 +367,16 @@ def plot_seasonal_spatial_means(seasonal_da, **kwargs):
 def plot_mean_spatial_differences_ET(ds, **kwargs):
     """ """
     # TODO: make this more dynamic and less hard-coded
-    variables, comparsions = get_variables_for_comparison1()
-    fig,axs = plt.subplots(1,3, figsize=(15,12))
+    # TODO: might have to pull out the figure/axes creation?
+    variables, comparisons = get_variables_for_comparison2(ds)
+    fig,axs = plt.subplots(1,3, figsize=(15,6))
 
     for i, cmprson in enumerate(comparisons):
         # calculate the difference between the variables
         diff = ds[cmprson[0]] - ds[cmprson[1]]
         ax = axs[i]
         # plot the temporal mean (MAP)
-        if i!=3:
+        if i!=2:
             plot_mean_time(diff, ax, add_colorbar=False, **kwargs)
         else:
             plot_mean_time(diff, ax, add_colorbar=True, **kwargs)

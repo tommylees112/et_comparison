@@ -8,12 +8,38 @@ from pathlib import Path
 import warnings
 import itertools
 
+# package for comparing soil moisture datasets:
+# https://pytesmo.readthedocs.io/en/latest/introduction.html
+
+# ------------------------------------------------------------------------------
+# Working with Time Variables
+# ------------------------------------------------------------------------------
+
+
+def compute_anomaly(da, time_group='time.month'):
+    """ Return a dataarray where values are an anomaly from the MEAN for that
+         location at a given timestep. Defaults to finding monthly anomalies.
+
+    Arguments:
+    ---------
+    : da (xr.DataArray)
+    : time_group (str)
+        time string to group.
+    """
+    mthly_vals = da.groupby(time_group).mean('time')
+    da = da.groupby(time_group) - mthly_vals
+
+    return da
+
+
+
+
 # ------------------------------------------------------------------------------
 # Working with Comparisons
 # ------------------------------------------------------------------------------
 
 def get_variables_for_comparison1():
-    """ Return the variables for intercomparison ()
+    """ Return the variables for intercomparison (HARDCODED)
     REturns:
     -------
     : variables (list)
@@ -27,6 +53,29 @@ def get_variables_for_comparison1():
      'gleam_evapotranspiration',
      'modis_evapotranspiration',
     ]
+    comparisons = [i for i in itertools.combinations(variables,2)]
+    return variables, comparisons
+
+
+def get_variables_for_comparison2(ds):
+    """ Return the variables for intercomparison for variables from ds
+    REturns:
+    -------
+    : variables (list)
+        list of strings of the variable names to create all combinations of
+    : comparisons (list)
+        list of strings. combinations of all the variables listed in variables
+    """
+    import itertools
+    datasets = ['holaps', 'gleam', 'modis']
+    coords = [coord for coord in ds.coords.keys()]
+    variables = np.array([var_ for var_ in ds.variables.keys() if var_ not in coords])
+
+    # TODO: this needs some fixing/love to be general
+    # currently only working with 3 evaporation products so mask out precip vals
+    valid_vars = [any(dst in var for dst in datasets) for var in variables]
+    variables = variables[valid_vars]
+
     comparisons = [i for i in itertools.combinations(variables,2)]
     return variables, comparisons
 
@@ -129,7 +178,7 @@ def mask_multiple_conditions(da, vals_to_keep):
 
     Note: https://stackoverflow.com/a/40556458/9940782
     """
-    msk = xr.DataArray(np.in1d(da, sub).reshape(da.shape),
+    msk = xr.DataArray(np.in1d(da, vals_to_keep).reshape(da.shape),
                        dims=da.dims, coords=da.coords)
 
     return msk
@@ -214,9 +263,9 @@ def replace_with_dict2(ar, dic):
     return vs[np.searchsorted(ks,ar) -1 ]
 
 
-
+# TODO: rename this function
 def get_lookup_val(xr_obj, variable, new_variable, lookup_dict):
-    """
+    """ Assign a new Variable to xr_obj with values from lookup_dict.
     Arguments:
     ---------
     : xr_obj (xr.Dataset, xr.DataArray)

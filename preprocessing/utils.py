@@ -273,12 +273,13 @@ def save_netcdf(xr_obj, filepath, force=False):
     return
 
 
-def get_all_valid(ds, holaps_da, modis_da, gleam_da):
+def get_all_valid(ds, holaps_da, modis_da, gleam_da, chirps_da):
     """ Return only values for pixels/times where ALL PRODUCTS ARE VALID """
     valid_mask = (
-    holaps_da.notnull()
-    & modis_da.notnull()
-    & gleam_da.notnull()
+        holaps_da.notnull()
+        & modis_da.notnull()
+        & gleam_da.notnull()
+        & chirps_da.notnull()
     )
     ds_valid = ds.where(valid_mask)
 

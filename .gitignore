@@ -21,3 +21,4 @@ docs/*
 *.zip
 
 *.png
+.DS_Store

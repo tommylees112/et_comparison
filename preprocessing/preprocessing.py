@@ -23,12 +23,12 @@ if __name__ == "__main__":
     e = EsaCciCleaner()
     e.preprocess()
 
-    merge the preprocessed data and save to netcdf
+    # merge the preprocessed data and save to netcdf
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data)
     ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration, ds.chirps_precipitation)
-
+    assert (ds.chirps_precipitation.isnull() == ds.holaps_evapotranspiration.isnull()).mean() == 1., "the missing (nan) values should be exactly the same in all products!"
     output_ds_path='/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc'
-    save_netcdf(ds, output_ds_path, force=False)
+    save_netcdf(ds, output_ds_path, force=True)
 
 
 
