@@ -68,28 +68,24 @@ evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
 # ------------------------------------------------------------------------------
 
 
-drop_nans_and_flatten(da)
-
 from engineering.eng_utils import get_variables_for_comparison1
 vars_, ds_comparisons = get_variables_for_comparison1()
-col_lookup = dict(zip(evap_das, [h_col,g_col,m_col]))
+col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
 
 # Plot the comparison between the P-ET products
-for ds_comparison in ds_comparisons:
+for var_ in vars_:
     # get the xlabel and xcolour
-    xlabel = ds_comparison[0]
+    xlabel = 'chirps_precipitation'
     xcol = col_lookup[xlabel]
     # get the ylabel and ycolour
-    ylabel = ds_comparison[1]
+    ylabel = var_
     ycol = col_lookup[ylabel]
     # get the dataarrays to compare
-    da1 = ds[ds_comparison[0]]
-    da2 = ds[ds_comparison[1]]
+    da1 = drop_nans_and_flatten(ds.chirps_precipitation)
+    da2 = drop_nans_and_flatten(ds[var_])
     hexbin_jointplot_sns(da1, da2, h_col, g_col, bins='log', xlabel=xlabel, ylabel=ylabel)
-
-hexbin_jointplot_sns()
-
-
+    fig = plt.gcf()
+    fig.savefig(BASE_FIG_DIR/f'sns_hexplot_{xlabel}_vs_{ylabel}.png')
 
 
 #%%
@@ -154,19 +150,53 @@ for ix, evap_da in enumerate(evap_das):
     fig.savefig(BASE_FIG_DIR/f'{evap_da}_marginal.png')
 
 
-# Calculate the P-E for each evaporation product
-all_ds = [ds.chirps_precipitation - ds[evap_da] for evap_da in evap_das]
+# Calculate the P-E for each evaporation product (FOR ANNUAL TIMESCALES)
+ds_annual = ds.resample(time = 'Y').mean()
+all_ds = [ds_annual.chirps_precipitation - ds_annual[evap_da] for evap_da in evap_das]
 for i,da in enumerate(all_ds):
     da.name = evap_das[i] + "_minus_P"
 P_E_ds = xr.merge(all_ds)
 
+# compute 5 year P-E
+ds_5yr = ds.mean(dim='time')
+all_ds = [ds_5yr.chirps_precipitation - ds_5yr[evap_da] for evap_da in evap_das]
+for i,da in enumerate(all_ds):
+    da.name = evap_das[i] + "_minus_P"
+pe_5ds = xr.merge(all_ds)
 
 # Plot spatial plots of the comparison between these P-ET
 variables, comparisons = get_variables_for_comparison1()
 kwargs = {'vmin':-2,'vmax':2}
-fig = plot_mean_spatial_differences_ET(P_E_ds, **kwargs)
-fig.suptitle('Comparison of Spatial Means between P-ET for different products')
-fig.savefig(BASE_FIG_DIR / 'spatial_mean_of_P-E_comparisons.png')
+
+# dims_ = [dims for dims in P_E_ds.dims.keys()]
+# vars_ = [var for var in P_E_ds.variables.keys() if var not in dims_]
+# for var_ in vars_:
+#     with xr.set_options(cmap_sequential='RdBu'):
+#         fig,ax = plt.subplots()
+#         plot_mean_time(P_E_ds[var_], ax=ax, add_colorbar=True, **kwargs)
+#         fig.suptitle(f'Spatial Means of Annual P-ET for {var_}')
+#         fig.savefig(BASE_FIG_DIR / f'annual_spatial_mean_of_P-E_{var_}.png')
+
+# PLOT MARGINALS
+vars_ = [var for var in P_E_ds.variables.keys() if var not in dims_]
+col_lookup = dict(zip(vars_,colors[:-1]))
+for var_ in vars_:
+    da = P_E_ds[var_]
+    color = col_lookup[var_]
+    title = f"Annual P-E Hisogram plots {var_}"
+
+    plot_marginal_distribution(da, color, ax=None, title=title, xlabel=var_)
+
+
+vars_ = [var for var in pe_5ds.variables.keys() if var not in dims_]
+col_lookup = dict(zip(vars_,colors[:-1]))
+for var_ in vars_:
+    da = pe_5ds[var_]
+    color = col_lookup[var_]
+    title = f"5 Yearly P-E Hisogram plots {var_}"
+
+    plot_marginal_distribution(da, color, ax=None, title=title, xlabel=var_)
+
 
 fig = plot_mean_spatial_differences_ET(ds, **kwargs)
 fig.suptitle('Comparison of Spatial Means between E for different products')
@@ -227,7 +257,6 @@ fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
 df.index = pd.to_datetime(df.DATE)
 df = df.drop(columns='DATE')
-
 
 # do unit conversion (without your previous calcs)
 # blue nile metadata (FOR THE STATIONS)

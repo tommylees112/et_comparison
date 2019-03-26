@@ -59,6 +59,7 @@ from plotting.plots import plot_geog_location
 from plotting.plots import add_points_to_map, add_sub_region_box
 from plotting.plots import plot_seasonality
 from plotting.plots import plot_normalised_seasonality
+from plotting.plots import get_variables_for_comparison1, plot_mean_time, plot_seasonal_comparisons_ET_diff
 
 #
 from plotting.plot_utils import get_colors
@@ -86,13 +87,10 @@ nonan_h = drop_nans_and_flatten(h)
 nonan_g = drop_nans_and_flatten(g)
 nonan_m = drop_nans_and_flatten(m)
 
-h_col = sns.color_palette()[0]
-m_col = sns.color_palette()[1]
-g_col = sns.color_palette()[2]
-
 
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
+colors = [h_col, m_col, g_col, c_col] = get_colors()
 
 
 lonmin=32.6
