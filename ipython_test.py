@@ -42,6 +42,7 @@ from engineering.eng_utils import bin_dataset, pickle_files
 from engineering.eng_utils import load_pickle, create_flattened_dataframe_of_values
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 from engineering.eng_utils import create_double_year
+from engineering.eng_utils import get_non_coord_variables
 
 
 # import data plotting functions

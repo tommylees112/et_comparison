@@ -194,6 +194,11 @@ def calculate_monthly_mean(ds):
     return ds.groupby('time.month').mean(dim='time')
 
 
+def calculate_monthly_std(ds):
+    assert 'time' in [dim for dim in ds.dims.keys()], f"Time must be in the dataset dimensions. Currently: {[dim for dim in ds.dims.keys()]}"
+    return ds.groupby('time.month').std(dim='time')
+
+
 def calculate_spatial_mean(ds):
     assert ('lat' in [dim for dim in ds.dims.keys()]) & ('lon' in [dim for dim in ds.dims.keys()]), f"Must have 'lat' 'lon' in the dataset dimensisons"
     return ds.mean(dim=['lat','lon'])
@@ -352,3 +357,9 @@ def save_pickle(filepath, variable):
     with open(filepath, 'wb') as f:
         pickle.dump(variable, f)
     return
+
+
+def get_non_coord_variables(ds):
+    """ Return a list of the variable names EXCLUDING the coordinates (lat,lon,time) """
+    var_names = [var for var in ds.variables.keys() if var not in ds.coords.keys()]
+    return var_names

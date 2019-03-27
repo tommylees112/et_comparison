@@ -22,17 +22,18 @@ import os
 
 # Custom functions
 from engineering.eng_utils import drop_nans_and_flatten
-from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean, create_double_year
+from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean, create_double_year, calculate_monthly_std
 from engineering.eng_utils import get_variables_for_comparison1
 from engineering.eng_utils import get_variables_for_comparison2
 from engineering.eng_utils import get_unmasked_data
+from engineering.eng_utils import get_non_coord_variables
 
 
 # ------------------------------------------------------------------------------
 # Histograms (Marginal Distributions)
 # ------------------------------------------------------------------------------
 
-def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFAULT', **kwargs):
+def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFAULT', summary=False, **kwargs):
     """ """
     # if no ax create one
     if ax is None:
@@ -40,12 +41,15 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
 
     # flatten the DataArray
     da_flat = drop_nans_and_flatten(DataArray)
+    if summary:
+        min, max, mean, median = da_flat.min(), da_flat.max(), da_flat.mean(), np.median(da_flat)
+
     # plot the histogram
     sns.distplot(da_flat, ax=ax, color=color, **kwargs)
     warnings.warn('Hardcoding the values of the units becuase they should have already been converted to mm day-1')
 
     if title == '':
-        title= f'Density Plot of {DataArray.name} [mm day-1]'
+        title= f'Density Plot of {DataArray.name} [mm day-1]\nmin: {min:.2f} max: {max:.2f} mean: {mean:.2f} median: {median:.2f} '
 
     ax.set_title(title)
 
@@ -54,10 +58,7 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
 
     ax.set_xlabel(xlabel)
 
-    if ax is None:
-        return fig, ax
-    else:
-        return ax
+    return ax
 
 
 # ------------------------------------------------------------------------------
@@ -281,28 +282,108 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
 # ------------------------------------------------------------------------------
 # Temporal Plots
 # ------------------------------------------------------------------------------
+from engineering.eng_utils import get_non_coord_variables
 
 
-def plot_seasonality(ds, ylabel=None, double_year=False):
-    """ """
+def caclulate_std_of_mthly_seasonality(ds,double_year=False):
+    """Calculate standard deviataion of monthly variability """
+    std_ds = calculate_monthly_std(ds)
+    seasonality_std = calculate_spatial_mean(std_ds)
+
+    # rename vars
+    var_names = get_non_coord_variables(seasonality_std)
+    new_var_names = [var + "_std" for var in var_names]
+    seasonality_std = seasonality_std.rename(dict(zip(var_names, new_var_names)))
+
+    #
+    if double_year:
+        seasonality_std = create_double_year(seasonality_std)
+
+    return seasonality_std
+
+
+def plot_mean_and_std(mean_ds, std_ds, ax):
+    """
+    Assumes the labels in the std dataset are just the same with '_std' added as suffix!
+    """
+    # TODO: remove this complexity and force datasets to have a TIME dimension
+    # check the time coordinates (can be 'time', 'month', 'season' etc.)
+    time_coords = [coord for coord in mean_ds.coords if coord not in ['lat','lon','latitude','longitude','x','y']]
+    time_coord = 'time' if 'time' in time_coords else time_coords[0]
+
+    assert all(mean_ds[time_coord].values == std_ds[time_coord].values), f"Both datasets should be on the same timesteps! \nCurrently: mean_ds min: {mean_ds.time.min()} max: {mean_ds.time.max()} vs. std_ds min: {std_ds.time.min()} max: {std_ds.time.max()}"
+
+    mean_ds_vars = get_non_coord_variables(mean_ds)
+    std_ds_vars = get_non_coord_variables(std_ds)
+    time = mean_ds[time_coord].values
+    # mean_var, std_var = mean_ds_vars[0], std_ds_vars[0]
+
+    for ix, mean_var in enumerate(mean_ds_vars): # mean_var, std_var in zip(mean_ds_vars,std_ds_vars):
+        std_var = std_ds_vars[ix]
+        # TODO: implement colors
+        # color = colors[ix]
+
+        mean_ts = mean_ds[mean_var].values
+        std_ts = std_ds[std_var].values
+        max_y = mean_ts + std_ts
+        min_y = mean_ts - std_ts
+        # ax.plot(x=time, y=mean_ts)
+        pd.DataFrame({mean_var:mean_ts}).plot(ax=ax)
+        ax.fill_between(time -1, min_y, max_y, alpha=0.3)
+
+
+    return ax
+
+
+
+
+def plot_seasonality(ds, ylabel=None, double_year=False, variance=False):
+    """Plot the monthly seasonality of the dataset
+
+    Arguments:
+    ---------
+    : ds (xr.Dataset)
+    : ylabel (str, None)
+        what is the y-axis label?
+    : double_year (bool)
+        Do you want to view 2 seasonal cycles to better visualise winter months
+    : variance (bool)
+        Do you want +- 1SD 'intervals' plotted?
+
+    TODO: explore seaborn to see if there is a better way to plot uncertainties.
+          Main Q: what is the format data must be in to get uncertainties of
+           +- 1SD?
+    """
     mthly_ds = calculate_monthly_mean(ds)
     seasonality = calculate_spatial_mean(mthly_ds)
 
     if double_year:
         seasonality = create_double_year(seasonality)
 
-    fig, ax = plt.subplots(figsize=(12,8))
-    seasonality.to_dataframe().plot(ax=ax)
-    ax.set_title('Spatial Mean Seasonal Time Series')
-    plt.legend()
+    if variance:
+        seasonality_std = caclulate_std_of_mthly_seasonality(ds,double_year=double_year)
+        # merge into one dataset
+        # seasonality = xr.merge([seasonality,seasonality_std])
 
+    fig, ax = plt.subplots(figsize=(12,8))
+
+    if variance:
+        plot_mean_and_std(seasonality, seasonality_std, ax)
+    else:
+        seasonality.to_dataframe().plot(ax=ax)
+        ax.set_title('Spatial Mean Seasonal Time Series')
+        plt.legend()
+
+    if double_year:
+        # add vertical line separator to distinguish between years
+        ax.axvline(12, color='black', linestyle=":", alpha=0.5)
     if ylabel != None:
         ax.set_ylabel(ylabel)
 
     return fig, ax
 
 
-def plot_normalised_seasonality(ds, double_year=False):
+def plot_normalised_seasonality(ds, double_year=False, variance=False):
     """ Normalise the seasonality by each months contribution to the annual mean total.
 
     Arguments:
@@ -320,8 +401,28 @@ def plot_normalised_seasonality(ds, double_year=False):
 
     if double_year:
         norm_seasonality = create_double_year(norm_seasonality)
+
+    if variance:
+        seasonality_std = caclulate_std_of_mthly_seasonality(ds,double_year=double_year)
+        norm_seasonality_std = seasonality_std.apply(lambda x: (x / x.sum(dim='month'))*100)
+        # merge into one dataset
+        # seasonality = xr.merge([seasonality,seasonality_std])
+
+    fig, ax = plt.subplots(figsize=(12,8))
+
+    if variance:
+        plot_mean_and_std(norm_seasonality, norm_seasonality_std, ax)
+    else:
+        norm_seasonality.to_dataframe().plot(ax=ax)
+        ax.set_title('Spatial Mean Seasonal Time Series')
+        plt.legend()
+
+    if double_year:
+        # add vertical line separator to distinguish between years
+        ax.axvline(12, color='black', linestyle=":", alpha=0.5)
+
     # convert to dataframe (useful for plotting values)
-    norm_seasonality.to_dataframe().plot(ax=ax)
+    # norm_seasonality.to_dataframe().plot(ax=ax)
     ax.set_title('Normalised Seasonality')
     ax.set_ylabel('Contribution of month to annual total (%)')
     plt.legend()
@@ -484,7 +585,7 @@ def get_river_features():
 
 
 
-def plot_geog_location(region, lakes=False, borders=False, rivers=False):
+def plot_geog_location(region, lakes=False, borders=False, rivers=False, scale=1):
     """ use cartopy to plot the region (defined as a namedtuple object)
 
     Arguments:
@@ -499,7 +600,9 @@ def plot_geog_location(region, lakes=False, borders=False, rivers=False):
         show river features (@10m scale from NaturalEarth)
     """
     lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
-    ax = plt.figure().gca(projection=cartopy.crs.PlateCarree())
+    figsize = (12*scale,8*scale)
+    fig = plt.figure(figsize=figsize)
+    ax = fig.gca(projection=cartopy.crs.PlateCarree())
     ax.add_feature(cartopy.feature.COASTLINE)
     if borders:
         ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
@@ -548,7 +651,7 @@ def add_points_to_map(ax, geodf, point_colors="#0037ff"):
     return ax
 
 
-def plot_stations_on_region_map(region, station_location_df, point_colors="#0037ff"):
+def plot_stations_on_region_map(region, station_location_df, point_colors="#0037ff", scale=1):
     """ Plot the station locations in `station_location_df` on a map of the region
 
     Arguments:
@@ -562,7 +665,7 @@ def plot_stations_on_region_map(region, station_location_df, point_colors="#0037
     : fig (matplotlib.figure.Figure)
     : ax (cartopy.mpl.geoaxes.GeoAxesSubplot)
     """
-    fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True)
+    fig, ax = plot_geog_location(region, lakes=True, borders=True, rivers=True, scale=scale)
     ax =  add_points_to_map(ax, station_location_df, point_colors=point_colors)
 
     return fig, ax

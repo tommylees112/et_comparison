@@ -34,6 +34,7 @@ from engineering.eng_utils import load_pickle, create_flattened_dataframe_of_val
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 from engineering.eng_utils import create_double_year
 from engineering.eng_utils import get_variables_for_comparison1
+from engineering.eng_utils import get_non_coord_variables
 
 
 # import data plotting functions
@@ -109,7 +110,7 @@ fig.savefig(BASE_FIG_DIR/'chirps_marginal.png')
 #
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
-[h_col, m_col, g_col, c_col] = get_colors()
+[h_col, m_col, g_col, c_col] = colors = get_colors()
 
 for evap_da in evap_das:
     da = ds.chirps_precipitation - ds[evap_da]
@@ -154,14 +155,14 @@ for ix, evap_da in enumerate(evap_das):
 ds_annual = ds.resample(time = 'Y').mean()
 all_ds = [ds_annual.chirps_precipitation - ds_annual[evap_da] for evap_da in evap_das]
 for i,da in enumerate(all_ds):
-    da.name = evap_das[i] + "_minus_P"
+    da.name = "P_minus_" + evap_das[i]
 P_E_ds = xr.merge(all_ds)
 
 # compute 5 year P-E
 ds_5yr = ds.mean(dim='time')
 all_ds = [ds_5yr.chirps_precipitation - ds_5yr[evap_da] for evap_da in evap_das]
 for i,da in enumerate(all_ds):
-    da.name = evap_das[i] + "_minus_P"
+    da.name = "P_minus_" + evap_das[i]
 pe_5ds = xr.merge(all_ds)
 
 # Plot spatial plots of the comparison between these P-ET
@@ -187,7 +188,8 @@ for var_ in vars_:
 
     plot_marginal_distribution(da, color, ax=None, title=title, xlabel=var_)
 
-
+# PLOT 5 year marginals
+dims_ = [dim for dim in pe_5ds.dims.keys()]
 vars_ = [var for var in pe_5ds.variables.keys() if var not in dims_]
 col_lookup = dict(zip(vars_,colors[:-1]))
 for var_ in vars_:
@@ -195,9 +197,12 @@ for var_ in vars_:
     color = col_lookup[var_]
     title = f"5 Yearly P-E Hisogram plots {var_}"
 
-    plot_marginal_distribution(da, color, ax=None, title=title, xlabel=var_)
+    fig,ax = plt.subplots(figsize=(12,8))
+    plot_marginal_distribution(da, color, ax=ax, title='', xlabel=var_, summary=True)
+    fig.savefig(BASE_FIG_DIR / f"5year_P-E_distribution_{var_}.png")
 
 
+# plot spatial mean of differences
 fig = plot_mean_spatial_differences_ET(ds, **kwargs)
 fig.suptitle('Comparison of Spatial Means between E for different products')
 fig.savefig(BASE_FIG_DIR / 'spatial_mean_of_ET_comparisons.png')
@@ -257,6 +262,8 @@ fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
 df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
 df.index = pd.to_datetime(df.DATE)
 df = df.drop(columns='DATE')
+# select the date range
+df = df['2001-01-01':'2005-12-31']
 
 # do unit conversion (without your previous calcs)
 # blue nile metadata (FOR THE STATIONS)
@@ -268,10 +275,74 @@ drainage_area = bn_meta.DrainArLDD
 bn_stations = df[bn_meta.ID]
 
 # turn the flow into mm day-1
-bn_stations = df[bn_meta.ID]
-for ID in bn_meta.ID:
-    drainage_area = bn_meta.query(f'ID == "{ID}"').DrainArLDD.values[0]
-    bn_stations[ID] = bn_stations[ID] * 86400 / drainage_area
+drainage_area_lookup = {}
+for ID in lookup_gdf.ID:
+    drainage_area = lookup_gdf.query(f'ID == "{ID}"').DrainArLDD.values[0]
+    # drainage_area_lookup[ID] = drainage_area
+    df[ID+'_norm'] = df[ID].apply(lambda runoff: ((runoff*1e9) / 86_400) / drainage_area )
+
+# val = flow in m3 sec-1
+# convert from m3 to mm
+val * 1e9
+# convert from s to days
+val / 86_400
+# convert per km^2
+val / drainage_area
+
+# normalised flows mm day-1
+df_normed = df[[col for col in df.columns if '_norm' in col]]
+fig,ax = plt.subplots(figsize=(12,8))
+sns.distplot(drop_nans_and_flatten(df_normed), ax=ax)
+fig.suptitle('Distribution of Flows\nrunoff * 1e9 / 86,400 / drainage_area')
+fig.savefig(BASE_FIG_DIR/'runoff_calculation_histogram1.png')
+
+
+#%%
+# ------------------------------------------------------------------------------
+# working with pysheds
+# ------------------------------------------------------------------------------
+
+from pysheds.grid import Grid
+
+# grid = Grid.from_raster(BASE_DATA_DIR/'hydrosheds'/'n30w100_con', data_name='dem')
+# grid.read_raster('n30w100_dir', data_name='dir')
+# grid.view('dem')
+
+dem_dir = BASE_DATA_DIR / "hydrosheds_dem"
+dem_files = [p.stem for p in dem_dir.glob('*') if (p.is_dir()) & ('WHOLE' not in p.stem)]
+direction_dir = BASE_DATA_DIR / "hydrosheds_direction" / "af_dir_15s" / "af_dir_15s"
+flow_accum_dir = BASE_DATA_DIR / "hydrosheds_flow" / "af_acc_15s/" / "af_acc_15s"
+
+from rasterio.plot import show
+
+grid = Grid.from_raster(dem_dir/dem_files[0]/dem_files[0], data_name='dem')
+grid.fill_depressions(data='dem', out_name='flooded_dem')
+grid.resolve_flats(data='flooded_dem', out_name='inflated_dem')
+grid.flowdir(data='inflated_dem', out_name='dir')
+
+fig, ax = plt.subplots()
+show(grid.dem)
+
+fig, ax = plt.subplots()
+show(grid.flooded_dem)
+
+fig, ax = plt.subplots()
+show(grid.inflated_dem)
+
+fig, ax = plt.subplots()
+show(grid.dir)
+
+
+directions_lookup = {
+    64: 'North',
+    128: 'Northeast',
+    1: 'East',
+    2: 'Southeast',
+    4: 'South',
+    8: 'Southwest',
+    16: 'West',
+    32: 'Northwest'
+}
 
 #%%
 # ------------------------------------------------------------------------------
@@ -291,12 +362,15 @@ river_basins_path = base_data_dir / "hydrosheds" / "h1k_lev6.shp"
 lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
 lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
 
-
 # 1. add new coordinate from shapefile
 river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="river_basins")
+kwargs = {'vmin':2200,'vmax':3500}
+# fig,ax = plot_geog_location(all_region,lakes=True, rivers=True, borders=True)
+fig, ax = plot_stations_on_region_map(all_region, lookup_gdf, scale=1)
+river_ds.river_basins.plot.contourf(levels=100, ax=ax, zorder=0, **kwargs)
 
 # 2. create lookup values for the basins
-all_basins = np.unique(river_ds.river_basins)[~np.isnan(np.unique(river_ds.river_basins))]
+all_basins = np.unique(drop_nans_and_flatten(river_ds.river_basins))
 # first 2 digits are significant! (drop the first one (-0.))
 bsns = np.unique(all_basins // 100)
 
@@ -793,10 +867,12 @@ from plotting.plots import plot_seasonality
 from plotting.plots import plot_normalised_seasonality
 
 
-fig,ax = plot_seasonality(ds, double_year=True)
+fig,ax = plot_seasonality(ds, double_year=True, variance=True)
 ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
-fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality.png')
+fig.suptitle('Monthly Mean Seasonality With +-1 S.D variability')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_VAR.png')
 
 
-fig = plot_normalised_seasonality(ds, double_year=True)
-fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_normed.png')
+fig = plot_normalised_seasonality(ds, double_year=True, variance=True)
+fig.suptitle('Monthly Mean Normalised Seasonality With +-1 S.D variability')
+fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_normed_VAR.png')
