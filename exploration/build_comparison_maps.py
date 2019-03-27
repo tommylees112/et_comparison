@@ -63,6 +63,43 @@ datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
 [h_col, m_col, g_col, c_col] = get_colors()
 
+
+#%%
+# ------------------------------------------------------------------------------
+#
+# ------------------------------------------------------------------------------
+
+ds_mth = calculate_monthly_mean(ds)
+norm_mth = ds_mth.apply(lambda x: (x / x.sum(dim='month'))*100)
+normed_pcp = norm_mth.chirps_precipitation
+
+# fig, ax = plt.subplots(figsize=(12,8))
+fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
+normed_pcp.max(dim='month').plot(ax=ax)
+
+loc1 = (38.1,2.407)
+loc2 = (37.3,10.29)
+
+def select_pixel(ds, loc):
+    return ds.sel(lat=loc[1],lon=loc[0],method='nearest')
+
+
+def turn_tuple_to_point(loc):
+    from shapely.geometry.point import Point
+    point = Point(loc[1], loc[0])
+    return point
+
+
+def plot_point_on_map(ax, loc):
+    """ """
+
+    return ax
+
+select_pixel(normed_pcp, loc1)
+fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
+point = turn_tuple_to_point(loc1)
+add_point_location_to_map(point, ax, color="0037ff")
+
 #%%
 # ------------------------------------------------------------------------------
 # Working with Precipitation Data
@@ -251,50 +288,121 @@ from engineering.regions import regions
 all_region = regions[0]
 highlands = regions[1]
 
-# gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
-lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
-lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
+def read_station_metadata():
+    """
+    Columns of lookup_gdf:
+    ---------------------
+    ID :            station ID
+    StationName :
+    RiverName :
+    RiverBasin :    basin name
+    Country :
+    CountryNam :
+    Continent :
+    Class :
+    DrainArLDD :     Drainage Area Local Drain Direction (LDD)
+    YCorrected :     latitude
+    XCorrected :     longitude
+    geometry :       (shapely.Geometry)
+    """
+    # gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+    lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+    lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
+    lookup_gdf['corrected_river_name'] = lookup_gdf.RiverName.apply(str.lower)
+    return lookup_gdf
 
+
+
+
+def read_station_flow_data():
+    """ """
+    # read raw data
+    df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
+    df.index = pd.to_datetime(df.DATE)
+    df = df.drop(columns='DATE')
+    # select the date range
+    df = df['2001-01-01':'2005-12-31']
+
+    return df
+
+
+def select_stations_in_river_name(lookup_gdf, river_name="Blue Nile"):
+    """ select only the stations in the following river basin"""
+    river_name = river_name.lower()
+    assert river_name in lookup_gdf.corrected_river_name.values, f"Invalid River name: {river_name}. River name must be one of: \n{np.unique(lookup_gdf.corrected_river_name.values)}"
+
+    # lookup_gdf.loc[lookup_gdf.]
+    return lookup_gdf.query(f'corrected_river_name == "{river_name}"').ID
+
+
+
+lookup_gdf = read_station_metadata()
 # plot locations of all stations
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+fig.suptitle('All Stations')
 
-# read raw data
-df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
-df.index = pd.to_datetime(df.DATE)
-df = df.drop(columns='DATE')
-# select the date range
-df = df['2001-01-01':'2005-12-31']
+df = read_station_flow_data()
+
+# blue nile metadata (FOR THE STATIONS)
+bn_ids = select_stations_in_river_name(lookup_gdf, river_name="Blue Nile")
+bn_meta = lookup_gdf.loc[lookup_gdf.ID.isin(bn_ids)]
+plot_stations_on_region_map(all_region, bn_meta)
+fig = plt.gcf()
+fig.suptitle('Runoff Station Measurements in the Blue Nile basin')
+fig.savefig(BASE_FIG_DIR / 'runoff_blue_nile_stations.png')
+
 
 # do unit conversion (without your previous calcs)
-# blue nile metadata (FOR THE STATIONS)
-bn_meta = lookup_df.query('RiverName == "Blue Nile"')
-plot_stations_on_region_map(all_region, bn_meta)
 
-# what are the unite of the DrainArLDD ??
+# what are the units of the DrainArLDD ??
 drainage_area = bn_meta.DrainArLDD
 bn_stations = df[bn_meta.ID]
 
+
+def calculate_flow_per_day(df, lookup_gdf):
+    """ convert flow in m3/s => mm/day in new columns, `colnames` = ID + '_perday'
+
+    Steps:
+    1) normalise per unit area
+        runoff / m2
+    2) Convert m => mm
+        * 1000
+    3) convert s => days
+        / 86,400
+    4)
+    """
+    for ID in lookup_gdf.ID:
+        drainage_area = lookup_gdf.query(f'ID == "{ID}"').DrainArLDD.values[0]
+        # TODO: what units is DrainArLDD in?
+        # df[ID+'_norm'] = df[ID].apply(lambda runoff: ((runoff*1e9) / 86_400) / drainage_area )
+        df[ID + '_perday'] = df[ID].apply(lambda runoff: ((runoff/(drainage_area)) * 86_400 * 1000)  )
+
+    return df
+
+df = calculate_flow_per_day(df, lookup_gdf)
+df_normed = df[[col for col in df.columns if 'perday' in col]]
+fig,ax = plt.subplots(figsize=(12,8))
+sns.distplot(drop_nans_and_flatten(df_normed), ax=ax, bins=1000)
+
 # turn the flow into mm day-1
 drainage_area_lookup = {}
-for ID in lookup_gdf.ID:
-    drainage_area = lookup_gdf.query(f'ID == "{ID}"').DrainArLDD.values[0]
-    # drainage_area_lookup[ID] = drainage_area
-    df[ID+'_norm'] = df[ID].apply(lambda runoff: ((runoff*1e9) / 86_400) / drainage_area )
 
-# val = flow in m3 sec-1
-# convert from m3 to mm
-val * 1e9
-# convert from s to days
-val / 86_400
-# convert per km^2
-val / drainage_area
+# # val = flow in m3 sec-1
+# # divide per unit area (in m2, m3 => m)
+# val / drainage_area
+# # convert from m to mm
+# val * 1000
+# # convert from s to days
+# val / 86_400
+# # convert per km^2
+# val / drainage_area
 
 # normalised flows mm day-1
-df_normed = df[[col for col in df.columns if '_norm' in col]]
+df_normed = df[[col for col in df.columns if 'perday' in col]]
 fig,ax = plt.subplots(figsize=(12,8))
-sns.distplot(drop_nans_and_flatten(df_normed), ax=ax)
-fig.suptitle('Distribution of Flows\nrunoff * 1e9 / 86,400 / drainage_area')
-fig.savefig(BASE_FIG_DIR/'runoff_calculation_histogram1.png')
+sns.distplot(drop_nans_and_flatten(df_normed), ax=ax, bins=1000)
+fig.suptitle('Distribution of Flows\nrunoff / drainage_area * 86,400 * 1000')
+fig.savefig(BASE_FIG_DIR/'runoff_calculation_histogram3.png')
 
 
 #%%
@@ -367,7 +475,7 @@ river_ds = add_shape_coord_from_data_array(ds, river_basins_path, coord_name="ri
 kwargs = {'vmin':2200,'vmax':3500}
 # fig,ax = plot_geog_location(all_region,lakes=True, rivers=True, borders=True)
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf, scale=1)
-river_ds.river_basins.plot.contourf(levels=100, ax=ax, zorder=0, **kwargs)
+river_ds.river_basins.plot.contourf(levels=1000, ax=ax, zorder=0, **kwargs)
 
 # 2. create lookup values for the basins
 all_basins = np.unique(drop_nans_and_flatten(river_ds.river_basins))
@@ -876,3 +984,9 @@ fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_VAR.png')
 fig = plot_normalised_seasonality(ds, double_year=True, variance=True)
 fig.suptitle('Monthly Mean Normalised Seasonality With +-1 S.D variability')
 fig.savefig(BASE_FIG_DIR / 'spatial_mean_seasonality_normed_VAR.png')
+
+
+fig,ax = plot_seasonality(ds.drop('chirps_precipitation'), double_year=True, variance=True)
+ax.set_ylabel('Monthly Mean Daily Evapotranspiration [mm day-1]')
+fig.suptitle('Monthly Mean Seasonality With +-1 S.D variability')
+fig.savefig(BASE_FIG_DIR / 'AA_spatial_mean_seasonality_VAR.png')

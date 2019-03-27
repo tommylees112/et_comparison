@@ -189,6 +189,23 @@ def mask_multiple_conditions(da, vals_to_keep):
 # ------------------------------------------------------------------------------
 
 
+def caclulate_std_of_mthly_seasonality(ds,double_year=False):
+    """Calculate standard deviataion of monthly variability """
+    std_ds = calculate_monthly_std(ds)
+    seasonality_std = calculate_spatial_mean(std_ds)
+
+    # rename vars
+    var_names = get_non_coord_variables(seasonality_std)
+    new_var_names = [var + "_std" for var in var_names]
+    seasonality_std = seasonality_std.rename(dict(zip(var_names, new_var_names)))
+
+    #
+    if double_year:
+        seasonality_std = create_double_year(seasonality_std)
+
+    return seasonality_std
+
+
 def calculate_monthly_mean(ds):
     assert 'time' in [dim for dim in ds.dims.keys()], f"Time must be in the dataset dimensions. Currently: {[dim for dim in ds.dims.keys()]}"
     return ds.groupby('time.month').mean(dim='time')

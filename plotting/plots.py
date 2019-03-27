@@ -283,23 +283,7 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
 # Temporal Plots
 # ------------------------------------------------------------------------------
 from engineering.eng_utils import get_non_coord_variables
-
-
-def caclulate_std_of_mthly_seasonality(ds,double_year=False):
-    """Calculate standard deviataion of monthly variability """
-    std_ds = calculate_monthly_std(ds)
-    seasonality_std = calculate_spatial_mean(std_ds)
-
-    # rename vars
-    var_names = get_non_coord_variables(seasonality_std)
-    new_var_names = [var + "_std" for var in var_names]
-    seasonality_std = seasonality_std.rename(dict(zip(var_names, new_var_names)))
-
-    #
-    if double_year:
-        seasonality_std = create_double_year(seasonality_std)
-
-    return seasonality_std
+from engineering.eng_utils import caclulate_std_of_mthly_seasonality
 
 
 def plot_mean_and_std(mean_ds, std_ds, ax):
@@ -328,7 +312,7 @@ def plot_mean_and_std(mean_ds, std_ds, ax):
         max_y = mean_ts + std_ts
         min_y = mean_ts - std_ts
         # ax.plot(x=time, y=mean_ts)
-        pd.DataFrame({mean_var:mean_ts}).plot(ax=ax)
+        pd.DataFrame({mean_var:mean_ts}).plot.line(ax=ax, marker='o')
         ax.fill_between(time -1, min_y, max_y, alpha=0.3)
 
 
@@ -370,7 +354,7 @@ def plot_seasonality(ds, ylabel=None, double_year=False, variance=False):
     if variance:
         plot_mean_and_std(seasonality, seasonality_std, ax)
     else:
-        seasonality.to_dataframe().plot(ax=ax)
+        seasonality.to_dataframe().plot.line(ax=ax, marker='o')
         ax.set_title('Spatial Mean Seasonal Time Series')
         plt.legend()
 
@@ -633,6 +617,18 @@ def plot_geog_location(region, lakes=False, borders=False, rivers=False, scale=1
     return fig, ax
 
 
+def add_point_location_to_map(point, ax, color="0037ff"):
+    """ """
+    assert isinstance(point, shapely.geometry.point.Point), f"point should be of type shapely.geometry.point.Point. Currently: {type(point)}"
+    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
+    ax.scatter(point.x,
+           point.y,
+           transform=cartopy.crs.PlateCarree(),
+           color=color)
+
+    return
+
+
 def add_points_to_map(ax, geodf, point_colors="#0037ff"):
     """ Add the point data stored in `geodf.geometry` as points to ax
     Arguments:
@@ -643,6 +639,8 @@ def add_points_to_map(ax, geodf, point_colors="#0037ff"):
     """
     assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
     points = geodf.geometry.values
+
+    # [add_point_location_to_map(point, ax, color="0037ff") for point in points]
     ax.scatter([point.x for point in points],
                [point.y for point in points],
                transform=cartopy.crs.PlateCarree(),
