@@ -115,7 +115,8 @@ def add_shape_coord_from_data_array(
     shapes = [(shape, n) for n, shape in enumerate(shp_gpd.geometry)]
 
     # BUT WE HAVE NO DICTIONARY FOR WHICH VALUES ARE WHICH
-    # TODO: implement a lookup 
+    # TODO: implement a lookup
+    # shp_column = "LEVEL6"
 
     # 3. create a new coord in the xr_da which will be set to the id in `shapes`
     xr_da[coord_name] = rasterize(

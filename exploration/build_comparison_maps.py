@@ -72,12 +72,43 @@ col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_co
 # ADDING Climate zones
 # ------------------------------------------------------------------------------
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
-climate_zone_shp_path = BASE_DATA_DIR / "climate_zone_sh" / "WC05_1975H_Koppen.shp"
+climate_zone_shp_path = BASE_DATA_DIR / "climate_zone_shp" / "WC05_1975H_Koppen.shp"
 
 d = add_shape_coord_from_data_array(ds, climate_zone_shp_path, coord_name="climate_zone")
+fig,ax=plt.subplots()
+d.climate_zone.plot(ax=ax)
+
+# climate zone lookup
+shp_gpd = gpd.read_file(climate_zone_shp_path)
+zone_ids = np.unique(drop_nans_and_flatten(d.climate_zone))
+zones = shp_gpd.loc[zone_ids,'Koppen']
+zone_lookup = dict(zip(zones.index, zones.values))
 
 
-shp_gpd = gpd.read_file(country_shp_path)
+
+# add climate zone information to the xarray object
+d = get_lookup_val(
+        xr_obj=d,
+        variable='climate_zone',
+        new_variable='koppen',
+        lookup_dict=zone_lookup
+)
+zones_in_region = np.unique(d.koppen)
+zone_lookup_r = dict(zip(zones_in_region, [i for i in range(len(zones_in_region))]))
+
+d = get_lookup_val(
+        xr_obj=d,
+        variable='koppen',
+        new_variable='koppen_code',
+        lookup_dict=zone_lookup_r
+)
+
+mask = d.chirps_precipitation.isel(time=0).isnull()
+d['koppen_code'] = d.koppen_code.where(~mask)
+
+fig,ax = plt.subplots()
+d.koppen_code.plot.contourf(ax=ax, levels=15)
+
 
 #%%
 # ------------------------------------------------------------------------------
@@ -100,9 +131,10 @@ if 2 in country_lookup.keys():
     country_lookup.pop(2)
 
 #
-dims = [dim for dim in ds.dims.keys()] + ['countries']
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code']
 variables = [var for var in ds.variables.keys() if var not in dims]
 
+# PLOTTING SEASONAL PATTERNS BY COUNTRY
 for country_id in country_lookup.keys():
     country = country_lookup[country_id]
     print(f"working on country {country}")
@@ -114,13 +146,14 @@ for country_id in country_lookup.keys():
     norm_mth = norm_mth.mean(dim=['lat','lon'])
 
     fig,axs = plt.subplots(2,2,figsize=(12,8))
-
+    ylim = [-0.1, 35]
     for ix, var in enumerate(variables):
         ax_ix = np.unravel_index(ix, (2,2))
         ax = axs[ax_ix]
         color = col_lookup[var]
         norm_mth[var].plot.line(ax=ax, marker='o', color=color)
         ax.set_title(var)
+        ax.set_ylim(ylim)
 
     plt.tight_layout()
     fig.suptitle(f"Seasonal Patterns for Country: {country}")
@@ -540,28 +573,32 @@ def select_stations_in_river_name(lookup_gdf, river_name="Blue Nile"):
     return lookup_gdf.query(f'corrected_river_name == "{river_name}"').ID
 
 
-
+df = read_station_flow_data()
 lookup_gdf = read_station_metadata()
+
 # plot locations of all stations
 fig, ax = plot_stations_on_region_map(all_region, lookup_gdf)
+# fig,ax = plot_geog_location(all_region, lakes=True, borders=True, rivers=True, scale=0.8)
+# lookup_gdf.plot(ax=ax)
 fig.suptitle('All Stations')
 
-df = read_station_flow_data()
 
-# blue nile metadata (FOR THE STATIONS)
-bn_ids = select_stations_in_river_name(lookup_gdf, river_name="Blue Nile")
-bn_meta = lookup_gdf.loc[lookup_gdf.ID.isin(bn_ids)]
-plot_stations_on_region_map(all_region, bn_meta)
-fig = plt.gcf()
-fig.suptitle('Runoff Station Measurements in the Blue Nile basin')
-fig.savefig(BASE_FIG_DIR / 'runoff_blue_nile_stations.png')
+def plot_blue_nile_stations():
+    # blue nile metadata (FOR THE STATIONS)
+    bn_ids = select_stations_in_river_name(lookup_gdf, river_name="Blue Nile")
+    bn_meta = lookup_gdf.loc[lookup_gdf.ID.isin(bn_ids)]
+    plot_stations_on_region_map(all_region, bn_meta)
+    fig = plt.gcf()
+    fig.suptitle('Runoff Station Measurements in the Blue Nile basin')
+    fig.savefig(BASE_FIG_DIR / 'runoff_blue_nile_stations.png')
 
+    # what are the units of the DrainArLDD ??
+    drainage_area = bn_meta.DrainArLDD
+    bn_stations = df[bn_meta.ID]
 
+    return bn_meta
 # do unit conversion (without your previous calcs)
 
-# what are the units of the DrainArLDD ??
-drainage_area = bn_meta.DrainArLDD
-bn_stations = df[bn_meta.ID]
 
 
 def calculate_flow_per_day(df, lookup_gdf):
@@ -569,11 +606,11 @@ def calculate_flow_per_day(df, lookup_gdf):
 
     Steps:
     1) normalise per unit area
-        runoff / m2
+        runoff (m3) / m2
     2) Convert m => mm
         * 1000
     3) convert s => days
-        / 86,400
+        * 86,400
     4)
     """
     for ID in lookup_gdf.ID:
@@ -583,6 +620,7 @@ def calculate_flow_per_day(df, lookup_gdf):
         df[ID + '_perday'] = df[ID].apply(lambda runoff: ((runoff/(drainage_area)) * 86_400 * 1000)  )
 
     return df
+
 
 df = calculate_flow_per_day(df, lookup_gdf)
 df_normed = df[[col for col in df.columns if 'perday' in col]]
@@ -684,6 +722,94 @@ river_ds.river_basins.plot.contourf(levels=1000, ax=ax, zorder=0, **kwargs)
 
 # 2. create lookup values for the basins
 all_basins = np.unique(drop_nans_and_flatten(river_ds.river_basins))
+shp_gpd = gpd.read_file(river_basins_path)
+basins_subset = shp_gpd.loc[all_basins]
+
+
+# PLOT ALL
+fig,ax = plot_geog_location(all_region, lakes=True, borders=True, rivers=True)
+basins_subset.plot(ax=ax, zorder=0, alpha=0.8, color=c_col)
+lookup_gdf.plot(ax=ax)
+fig.suptitle('Three Layers on top of one another: Basins, Stations, Boundaries')
+
+
+for polygon in basins_subset.geometry:
+    for point in lookup_gdf.geometry:
+        polygon.contains(point)
+
+# which CATCHMENT does each polygon belong to?
+catchments = []
+for point in lookup_gdf.geometry:
+    ix = [polygon.contains(point) for polygon in basins_subset.geometry]
+    watershed_ID = basins_subset[ix].LEVEL6.values
+    try:
+        watershed_ID = watershed_ID[0]
+    except:
+        watershed_ID = np.nan
+
+    catchments.append(watershed_ID)
+
+lookup_gdf['catchment_id'] = catchments
+
+# get lookup dict
+lookup_basin = dict(zip(basins_subset.index, basins_subset.LEVEL6))
+lookup_basin[np.nan] = np.nan
+
+r = get_lookup_val(xr_obj=river_ds, variable='river_basins',
+        new_variable='basin_code', lookup_dict=lookup_basin
+)
+
+import pyproj
+import shapely.ops as ops
+from shapely.geometry.polygon import Polygon
+from functools import partial
+
+
+def compute_area_of_geom(geom):
+    """ compute the area of a polygon using pyproj on a shapely object
+
+    https://gis.stackexchange.com/a/166421/123489
+    https://gis.stackexchange.com/questions/127607/area-in-km-from-polygon-of-coordinates
+    """
+    # assert isinstance(geom, shapely.geometry.multipolygon.MultiPolygon), f"geom should be of type: shapely.geometry.multipolygon.MultiPolygon, currently: {type(geom)}"
+
+    geom_area = ops.transform(
+        partial(
+            pyproj.transform,
+            pyproj.Proj(init='EPSG:4326'),
+            pyproj.Proj(
+                proj='aea',
+                lat1=geom.bounds[1],
+                lat2=geom.bounds[3])),
+        geom)
+
+    return geom_area.area
+
+
+#
+for row in range(len(basins_subset)):
+    geom = basins_subset.iloc[row,-1]
+    # geom = basins_subset.iloc[0,-1]
+    area = compute_area_of_geom(geom)
+
+# basins_subset.apply(lambda x: compute_area_of_geom(x.geometry), axis=1)
+# COMPUTE AREAS IN m-2
+areas = [compute_area_of_geom(row['geometry']) for (ix,row) in basins_subset.iterrows()]
+basins_subset['areas'] = areas
+
+
+
+geom_area = ops.transform(
+    partial(
+        pyproj.transform,
+        pyproj.Proj(init='EPSG:4326'),
+        pyproj.Proj(
+            proj='aea',
+            lat1=geom.bounds[1],
+            lat2=geom.bounds[3])),
+    geom)
+
+
 # first 2 digits are significant! (drop the first one (-0.))
 bsns = np.unique(all_basins // 100)
 
