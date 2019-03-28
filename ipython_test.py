@@ -88,7 +88,7 @@ ds = ds.where(ds.countries != 2)
 
 # get country lookup
 shp_gpd = gpd.read_file(country_shp_path)
-country_ids = np.unique(drop_nans_and_flatten(d.countries))
+country_ids = np.unique(drop_nans_and_flatten(ds.countries))
 countries = shp_gpd.loc[country_ids,'SOVEREIGNT']
 country_lookup = dict(zip(countries.index, countries.values))
 
