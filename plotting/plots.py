@@ -577,7 +577,7 @@ def plot_sub_geolocation(region, ax, lakes=False, borders=False, rivers=False):
     lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
     ax.add_feature(cartopy.feature.COASTLINE)
     if borders:
-    ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
     if lakes:
         ax.add_feature(cartopy.feature.LAKES)
     if rivers:
