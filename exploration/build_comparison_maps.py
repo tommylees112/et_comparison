@@ -64,6 +64,68 @@ BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting2')
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
 [h_col, m_col, g_col, c_col] = get_colors()
+col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
+
+
+#%%
+# ------------------------------------------------------------------------------
+# ADDING Climate zones
+# ------------------------------------------------------------------------------
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+climate_zone_shp_path = BASE_DATA_DIR / "climate_zone_sh" / "WC05_1975H_Koppen.shp"
+
+d = add_shape_coord_from_data_array(ds, climate_zone_shp_path, coord_name="climate_zone")
+
+
+shp_gpd = gpd.read_file(country_shp_path)
+
+#%%
+# ------------------------------------------------------------------------------
+# ADDING COUNTRY INFORMATION
+# ------------------------------------------------------------------------------
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+
+country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
+
+
+d = add_shape_coord_from_data_array(ds, country_shp_path, coord_name="countries")
+
+# get country lookup
+shp_gpd = gpd.read_file(country_shp_path)
+country_ids = np.unique(drop_nans_and_flatten(d.countries))
+countries = shp_gpd.loc[country_ids,'SOVEREIGNT']
+country_lookup = dict(zip(countries.index, countries.values))
+# remove yemen from lookup
+if 2 in country_lookup.keys():
+    country_lookup.pop(2)
+
+#
+dims = [dim for dim in ds.dims.keys()] + ['countries']
+variables = [var for var in ds.variables.keys() if var not in dims]
+
+for country_id in country_lookup.keys():
+    country = country_lookup[country_id]
+    print(f"working on country {country}")
+
+    # select that countries mean monthly pattern (temporal)
+    d = ds.where(ds.countries == country_id)
+    d_mth = calculate_monthly_mean(d)
+    norm_mth = d_mth.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_mth = norm_mth.mean(dim=['lat','lon'])
+
+    fig,axs = plt.subplots(2,2,figsize=(12,8))
+
+    for ix, var in enumerate(variables):
+        ax_ix = np.unravel_index(ix, (2,2))
+        ax = axs[ax_ix]
+        color = col_lookup[var]
+        norm_mth[var].plot.line(ax=ax, marker='o', color=color)
+        ax.set_title(var)
+
+    plt.tight_layout()
+    fig.suptitle(f"Seasonal Patterns for Country: {country}")
+    fig.savefig(BASE_FIG_DIR / f"seasonal_patterns_{country}.png")
+# look at each country rainfall pattern
 
 
 #%%
@@ -76,33 +138,42 @@ mean_std = calculate_monthly_mean_std(ds)
 ds_mth = calculate_monthly_mean(ds)
 norm_mth = ds_mth.apply(lambda x: (x / x.sum(dim='month'))*100)
 normed_pcp = norm_mth.chirps_precipitation
+norm_seas = ds.groupby('time.season').mean(dim='time').apply(lambda x: (x / x.sum(dim='season'))*100)
+seas_pcp = norm_seas.chirps_precipitation
 
+# -----------------------------------
 # which is more indicative? MIN or MAX
 fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
-normed_pcp.max(dim='month').plot(ax=ax)
+seas_pcp.max(dim='season').plot(ax=ax)
 fig.suptitle("MAX Normalised Monthly Precip (% of total)")
-add_point_location_to_map(point1, ax)
+# add_point_location_to_map(point1, ax)
 
 fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
-normed_pcp.min(dim='month').plot(ax=ax)
+seas_pcp.min(dim='season').plot(ax=ax)
 fig.suptitle("MIN Normalised Monthly Precip (% of total)")
 
 fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
-(normed_pcp.max(dim='month') - normed_pcp.min(dim='month')).plot(ax=ax)
+(seas_pcp.max(dim='season') - seas_pcp.min(dim='season')).plot(ax=ax)
 fig.suptitle("MAX-MIN Normalised Monthly Precip (% of total)")
 
-
-
 fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
-normed_pcp.std(dim='month').plot(ax=ax)
+seas_pcp.std(dim='season').plot(ax=ax)
 fig.suptitle("STD Normalised Monthly Precip (% of total)")
 
+# Attempt to mask out bimodal/unimodal regimes
+seas_std = seas_pcp.std(dim='season')
+fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
+seas_std.where((ds.lat < 3.7) | (seas_std > 13) | ).plot(ax=ax)
 
+# -----------------------------------
 
 # lat,lon
 loc1 = (2.407,38.1)
 loc2 = (10.29, 37.3)
 loc3 = (39.4,12.7)
+
+point1 = turn_tuple_to_point(loc1)
+point2 = turn_tuple_to_point(loc2)
 
 def select_pixel(ds, loc):
     """ (lat,lon) """
@@ -168,7 +239,6 @@ def plot_inset_map(ax, region, borders=False, lakes=False, rivers=False):
     if lakes:
         axins.add_feature(cartopy.feature.LAKES)
     if rivers:
-
         river_feature = get_river_features()
         axins.add_feature(river_feature)
     axins.set_extent([lonmin, lonmax, latmin, latmax])
@@ -193,35 +263,12 @@ def plot_pixel_tseries(da, loc, ax, map_plot=False):
         region = regions[0]
         # plot an inset map
         fig = plt.gcf()
-        ax2 = plot_inset_map2(fig, ax, region, borders=True, lakes=True, rivers=True)
+        ax2 = plot_inset_map(fig, ax, region, borders=True, lakes=True, rivers=True)
         point = turn_tuple_to_point(loc)
         add_point_location_to_map(point, ax, **{'s':2})
 
     return ax
 
-
-
-
-
-
-
-
-corner_rect = (0.84999999999999987,
-               0.012441587723185982,
-               0.14000000000000001,
-               0.13930240350766115)
-proj=cartopy.crs.PlateCarree
-ax2 = fig.add_axes(corner_rect,projection=proj)
-
-        assert False, "Need to get the plot_geog_location function to work with PROVIDED fig/ax, instead of "
-        point = turn_tuple_to_point(loc)
-        points = [point]
-
-        kwargs={'label':'POINT'}
-        fig, ax = plot_geog_location(all_region, borders=True, lakes=True, rivers=False)
-        add_point_location_to_map(point, ax)
-
-    return ax
 
 pixel_normed = select_pixel(normed_pcp, loc1)
 fig,ax = plt.subplots()

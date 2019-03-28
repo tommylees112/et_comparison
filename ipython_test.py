@@ -65,8 +65,6 @@ from plotting.plots import plot_normalised_seasonality
 from plotting.plots import get_variables_for_comparison1, plot_mean_time, plot_seasonal_comparisons_ET_diff
 from plotting.plots import add_point_location_to_map
 
-
-
 #
 from plotting.plot_utils import get_colors
 
@@ -81,9 +79,22 @@ h = ds.holaps_evapotranspiration.copy()
 m = ds.modis_evapotranspiration.copy()
 g = ds.gleam_evapotranspiration.copy()
 
+# drop yemen from the data
+from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
+ds = add_shape_coord_from_data_array(ds, country_shp_path, coord_name="countries")
+ds = ds.where(ds.countries != 2)
+
+# get country lookup
+shp_gpd = gpd.read_file(country_shp_path)
+country_ids = np.unique(drop_nans_and_flatten(d.countries))
+countries = shp_gpd.loc[country_ids,'SOVEREIGNT']
+country_lookup = dict(zip(countries.index, countries.values))
+
+
 lc = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/esa_lc_EA_clean.nc")
 
-df = ds.to_dataframe()
+# df = ds.to_dataframe()
 seasons = ds.groupby('time.season').mean(dim='time')
 
 mthly_mean = ds.groupby('time.month').mean(dim='time')

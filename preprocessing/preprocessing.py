@@ -1,6 +1,7 @@
 import sys
 sys.path.insert(0, "/soge-home/projects/crop_yield/et_comparison/")
 
+from pathlib import Path
 from preprocessing.holaps_cleaner import HolapsCleaner
 from preprocessing.modis_cleaner import ModisCleaner
 from preprocessing.gleam_cleaner import GleamCleaner
@@ -27,6 +28,14 @@ if __name__ == "__main__":
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data)
     ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration, ds.chirps_precipitation)
     assert (ds.chirps_precipitation.isnull() == ds.holaps_evapotranspiration.isnull()).mean() == 1., "the missing (nan) values should be exactly the same in all products!"
+
+    # drop yemen from the data
+    from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+
+    country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
+    ds = add_shape_coord_from_data_array(ds, country_shp_path, coord_name="countries")
+    ds = ds.where(ds.countries != 2)
+
     output_ds_path='/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc'
     save_netcdf(ds, output_ds_path, force=True)
 
