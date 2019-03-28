@@ -8,6 +8,7 @@ import xesmf as xe # for regridding
 from scipy.stats import pearsonr
 from scipy import stats
 import shapely
+import geopandas as gpd
 
 from pathlib import Path
 import itertools
@@ -96,13 +97,8 @@ lc = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/esa_lc_EA_clean
 
 # df = ds.to_dataframe()
 seasons = ds.groupby('time.season').mean(dim='time')
-
 mthly_mean = ds.groupby('time.month').mean(dim='time')
 seasonality = mthly_mean.mean(dim=['lat','lon'])
-
-nonan_h = drop_nans_and_flatten(h)
-nonan_g = drop_nans_and_flatten(g)
-nonan_m = drop_nans_and_flatten(m)
 
 
 datasets = ['holaps', 'gleam', 'modis']
@@ -129,7 +125,7 @@ def create_flattened_dataframe_of_values(h,g,m):
     return df
 
 
-dist_df = create_flattened_dataframe_of_values(h,g,m)
+# dist_df = create_flattened_dataframe_of_values(h,g,m)
 
 topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean_ds.nc')
 
