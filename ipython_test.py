@@ -7,6 +7,7 @@ import seaborn as sns
 import xesmf as xe # for regridding
 from scipy.stats import pearsonr
 from scipy import stats
+import shapely
 
 from pathlib import Path
 import itertools
@@ -43,6 +44,7 @@ from engineering.eng_utils import load_pickle, create_flattened_dataframe_of_val
 from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 from engineering.eng_utils import create_double_year
 from engineering.eng_utils import get_non_coord_variables
+from engineering.eng_utils import calculate_monthly_mean_std
 
 
 # import data plotting functions
@@ -61,6 +63,9 @@ from plotting.plots import add_points_to_map, add_sub_region_box
 from plotting.plots import plot_seasonality
 from plotting.plots import plot_normalised_seasonality
 from plotting.plots import get_variables_for_comparison1, plot_mean_time, plot_seasonal_comparisons_ET_diff
+from plotting.plots import add_point_location_to_map
+
+
 
 #
 from plotting.plot_utils import get_colors

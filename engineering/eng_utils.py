@@ -216,6 +216,25 @@ def calculate_monthly_std(ds):
     return ds.groupby('time.month').std(dim='time')
 
 
+def calculate_monthly_mean_std(ds):
+    """ """
+    # calculate mean and std
+    mean = calculate_monthly_mean(ds)
+    std = calculate_monthly_std(ds)
+
+    # get var names
+    dims = [dim for dim in mean.dims.keys()]
+    vars = [var for var in mean.variables.keys() if var not in dims]
+
+    # rename vars so can return ONE ds
+    mean_vars = [var+'_monmean' for var in vars]
+    std_vars = [var+'_monstd' for var in vars]
+    mean = mean.rename(dict(zip(vars, mean_vars)))
+    std = std.rename(dict(zip(vars, std_vars)))
+
+    return xr.merge([mean, std])
+
+
 def calculate_spatial_mean(ds):
     assert ('lat' in [dim for dim in ds.dims.keys()]) & ('lon' in [dim for dim in ds.dims.keys()]), f"Must have 'lat' 'lon' in the dataset dimensisons"
     return ds.mean(dim=['lat','lon'])

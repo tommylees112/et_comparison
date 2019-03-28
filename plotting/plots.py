@@ -280,7 +280,7 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
     return fig
 
 # ------------------------------------------------------------------------------
-# Temporal Plots
+# Temporal Plots / timeseries
 # ------------------------------------------------------------------------------
 from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import caclulate_std_of_mthly_seasonality
@@ -569,6 +569,24 @@ def get_river_features():
 
 
 
+plot_sub_geolocation(region, ax, lakes=False, borders=False, rivers=False):
+    """ to be plot using axins methods
+
+    https://matplotlib.org/gallery/axes_grid1/inset_locator_demo.html
+    """
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
+    ax.add_feature(cartopy.feature.COASTLINE)
+    if borders:
+    ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
+    if lakes:
+        ax.add_feature(cartopy.feature.LAKES)
+    if rivers:
+        # assert False, "Rivers are not yet working in this function"
+        river_feature = get_river_features()
+        ax.add_feature(river_feature)
+    return
+
+
 def plot_geog_location(region, lakes=False, borders=False, rivers=False, scale=1):
     """ use cartopy to plot the region (defined as a namedtuple object)
 
@@ -617,14 +635,15 @@ def plot_geog_location(region, lakes=False, borders=False, rivers=False, scale=1
     return fig, ax
 
 
-def add_point_location_to_map(point, ax, color="0037ff"):
+def add_point_location_to_map(point, ax, color=(0,0,0,1), **kwargs):
     """ """
     assert isinstance(point, shapely.geometry.point.Point), f"point should be of type shapely.geometry.point.Point. Currently: {type(point)}"
-    assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
+    # assert isinstance(ax, cartopy.mpl.geoaxes.GeoAxesSubplot), f"Axes need to be cartopy.mpl.geoaxes.GeoAxesSubplot. Currently: {type(ax)}"
     ax.scatter(point.x,
            point.y,
            transform=cartopy.crs.PlateCarree(),
-           color=color)
+           c=[color],
+           **kwargs)
 
     return
 
