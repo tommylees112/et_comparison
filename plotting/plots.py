@@ -569,7 +569,7 @@ def get_river_features():
 
 
 
-plot_sub_geolocation(region, ax, lakes=False, borders=False, rivers=False):
+def plot_sub_geolocation(region, ax, lakes=False, borders=False, rivers=False):
     """ to be plot using axins methods
 
     https://matplotlib.org/gallery/axes_grid1/inset_locator_demo.html

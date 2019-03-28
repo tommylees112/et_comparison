@@ -157,6 +157,7 @@ def plot_inset_map(ax, region, borders=False, lakes=False, rivers=False):
         axes_class=cartopy.mpl.geoaxes.GeoAxes,
         axes_kwargs=dict(map_projection=cartopy.crs.PlateCarree())
     )
+    ipdb.set_trace()
     axins.tick_params(labelleft=False, labelbottom=False)
 
     # plot the region
