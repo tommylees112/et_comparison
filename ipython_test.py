@@ -46,6 +46,7 @@ from engineering.eng_utils import calculate_monthly_mean, calculate_spatial_mean
 from engineering.eng_utils import create_double_year
 from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import calculate_monthly_mean_std
+from engineering.eng_utils import calculate_monthly_std
 
 
 # import data plotting functions
@@ -132,3 +133,54 @@ topo = xr.open_dataset('/soge-home/projects/crop_yield/EGU_compare/EA_topo_clean
 all_region = regions[0]
 highlands = regions[1]
 lake_victoria_region = regions[2]
+
+
+def read_station_metadata():
+    """
+    Columns of lookup_gdf:
+    ---------------------
+    ID :            station ID
+    StationName :
+    RiverName :
+    RiverBasin :    basin name
+    Country :
+    CountryNam :
+    Continent :
+    Class :
+    DrainArLDD :     Drainage Area Local Drain Direction (LDD)
+    YCorrected :     latitude
+    XCorrected :     longitude
+    geometry :       (shapely.Geometry)
+    """
+    # gpd.read_file(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+    lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
+    lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
+    lookup_gdf['corrected_river_name'] = lookup_gdf.RiverName.apply(str.lower)
+    return lookup_gdf
+
+
+
+
+def read_station_flow_data():
+    """ """
+    # read raw data
+    df = pd.read_csv(BASE_DATA_DIR / 'Qts_Africa_glofas_062016_1971_2005.csv')
+    df.index = pd.to_datetime(df.DATE)
+    df = df.drop(columns='DATE')
+    # select the date range
+    df = df['2001-01-01':'2005-12-31']
+
+    return df
+
+
+def select_stations_in_river_name(lookup_gdf, river_name="Blue Nile"):
+    """ select only the stations in the following river basin"""
+    river_name = river_name.lower()
+    assert river_name in lookup_gdf.corrected_river_name.values, f"Invalid River name: {river_name}. River name must be one of: \n{np.unique(lookup_gdf.corrected_river_name.values)}"
+
+    # lookup_gdf.loc[lookup_gdf.]
+    return lookup_gdf.query(f'corrected_river_name == "{river_name}"').ID
+
+
+df = read_station_flow_data()
+lookup_gdf = read_station_metadata()

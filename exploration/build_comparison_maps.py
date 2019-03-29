@@ -36,7 +36,7 @@ from engineering.eng_utils import create_double_year
 from engineering.eng_utils import get_variables_for_comparison1
 from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import calculate_monthly_mean_std
-
+from engineering.eng_utils import calculate_monthly_std
 
 # import data plotting functions
 from plotting.plots import plot_stations_on_region_map
@@ -65,6 +65,30 @@ datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
 [h_col, m_col, g_col, c_col] = get_colors()
 col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
+
+
+#%%
+# ------------------------------------------------------------------------------
+#
+# ------------------------------------------------------------------------------
+
+shp_path = BASE_DATA_DIR / "" / ".shp"
+coord_name = "watershed_for_pourpoint"
+# 1. add shapefile to xarray object
+wsheds_shp = gpd.read_file(shp_path)
+wsheds = add_shape_coord_from_data_array(xr_da=ds,
+    shp_path=shp_path,
+    coord_name=coord_name
+)
+# 2. subset by the regions of interest
+pour_points = lookup_gdf[['ID','StationName', 'DrainArLDD', 'YCorrected', 'XCorrected','geometry','corrected_river_name']]
+
+# 3. normalise the precip / evapotranspiration values by the areas
+unique_wsheds = np.unique(drop_nans_and_flatten(wsheds.coord_name))
+
+.where()
+
+
 
 
 #%%
@@ -159,6 +183,127 @@ for country_id in country_lookup.keys():
     fig.suptitle(f"Seasonal Patterns for Country: {country}")
     fig.savefig(BASE_FIG_DIR / f"seasonal_patterns_{country}.png")
 # look at each country rainfall pattern
+
+
+#%%
+# ------------------------------------------------------------------------------
+# Adding Dunning Seasonality
+# ------------------------------------------------------------------------------
+
+from preprocessing.utils import convert_to_same_grid
+
+dunning_dir = BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc"
+mask = ds.holaps_evapotranspiration.isel(time=0).isnull()
+
+if not dunning_dir.is_file():
+    dunning = xr.open_dataset(BASE_DATA_DIR/"dunning_seasonality_mask/"/"chirps_seasonality_mask.nc")
+    dunning = convert_to_same_grid(ds, dunning.seasonality_mask, method="nearest_s2d")
+    dunning = dunning.where(~mask)
+    dunning = dunning.drop('time')
+    dunning.to_netcdf(BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc")
+else:
+    dunning = xr.open_dataset(dunning_dir)
+
+
+def chop_to_region_extent(ds, region):
+    """
+
+    # dunning = chop_to_region_extent(dunning, all_region)
+
+    """
+
+    return ds.sel(
+        lat=slice(region.latmax,region.latmin),
+        lon=slice(region.lonmin,region.lonmax)
+    )
+
+
+
+# chirps rainfall for harmonic analysis
+kwargs = {'vmin':0, 'vmax':1.8, 'cmap':'inferno'}
+fig,ax = plt.subplots()
+dunning.plot.contourf(ax=ax, **kwargs)
+
+
+kwargs = {'vmin':0, 'vmax':4.0, 'cmap':'inferno'}
+# fig,ax = plt.subplots()
+# condition = (dunning.lat > 10) | (((dunning.lon < 44.0)) & (dunning < 1.0) & (dunning.lat > 1.0))
+condition = (dunning > 1.0) | (dunning.lat < 5)
+
+# condition.plot(ax=ax)
+fig,ax = plot_geog_location(all_region, borders=True)
+dunning.where(condition).plot(ax=ax, **kwargs)
+
+fig,ax = plot_geog_location(all_region, borders=True)
+dunning.where(dunning > 1.0).plot(ax=ax, **kwargs)
+
+# 1 = BIMODAL, 0 = UNIMODAL
+seasonality_mask = ((dunning > 1.0) ) | ((dunning.lat < 0) )
+# seasonality_mask = ((dunning < 1.0) & (dunning.lon < 40)) | (dunning.lat > 4)
+mask = ds.holaps_evapotranspiration.isel(time=0).isnull()
+seasonality_mask = seasonality_mask.where(~mask)
+
+fig,ax = plot_geog_location(all_region, borders=True)
+seasonality_mask.plot(ax=ax)
+fig.suptitle('Bimodal/Unimodal Mask\n(dunning > 1.0) ) | ((dunning.lat < 0)')
+fig.savefig(BASE_FIG_DIR/'dunning_bimodal_mask.png')
+
+fig,ax = plot_geog_location(all_region, borders=True)
+ds.chirps_precipitation.mean(dim='time').where(seasonality_mask).plot(ax=ax)
+
+bimodal = ds.where(seasonality_mask)
+unimodal = ds.where((~seasonality_mask.astype(bool)) & (~mask))
+
+fig,ax = plot_geog_location(all_region, borders=True)
+bimodal.chirps_precipitation.mean(dim='time').plot(ax=ax)
+fig.suptitle('Bimodal Rainfall')
+fig.savefig(BASE_FIG_DIR / 'bimodal_rainfall_mean_dim_time.png')
+
+fig,ax = plot_geog_location(all_region, borders=True)
+unimodal.chirps_precipitation.mean(dim='time').plot(ax=ax)
+fig.suptitle('Unimodal Rainfall')
+fig.savefig(BASE_FIG_DIR / 'unimodal_rainfall_mean_dim_time.png')
+
+
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code']
+variables = [var for var in ds.variables.keys() if var not in dims]
+
+
+def normalised_monthly_mean_std():
+    """ """
+    d_mean = calculate_monthly_mean(d)
+    d_std = calculate_monthly_std(d)
+
+    norm_mth = d_mth.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_mth = norm_mth.mean(dim=['lat','lon'])
+
+
+# TOMMY I WAS HERE
+# TODO: turn this into a function call
+col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
+ylim = [0,28]
+for dname, d in zip(["bimodal", "unimodal"], [bimodal, unimodal]):
+    d_mean = calculate_monthly_mean(d)
+    d_std = calculate_monthly_std(d)
+    norm_mth = d_mean.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_mth = norm_mth.mean(dim=['lat','lon'])
+
+    fig,axs = plt.subplots(2,2,figsize=(12,8))
+    ylim = [-0.1, 35]
+    for ix, var in enumerate(variables):
+        ax_ix = np.unravel_index(ix, (2,2))
+        ax = axs[ax_ix]
+        color = col_lookup[var]
+        norm_mth[var].plot.line(ax=ax, marker='o', color=color)
+        ax.set_title(var)
+        ax.set_ylim(ylim)
+
+    # plt.tight_layout()
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.suptitle(f"Seasonal Patterns for {dname} Rainfall Region")
+    fig.savefig(BASE_FIG_DIR / f"seasonal_patterns_{dname}_region.png")
+
+
 
 
 #%%
@@ -653,7 +798,55 @@ fig.savefig(BASE_FIG_DIR/'runoff_calculation_histogram3.png')
 # working with pysheds
 # ------------------------------------------------------------------------------
 
+river_network = gpd.read_file(BASE_DATA_DIR / "hydrosheds_rivers" / "af_riv_15s.shp")
+ymin, ymax, xmin, xmax = all_region.latmin, all_region.latmax, all_region.lonmin, all_region.lonmax,
+e_africa_rivers = river_network.cx[xmin:xmax, ymin:ymax]
+
+def return_geoms_within_region(geo_df, region):
+    """ Select the rows from a geopandas dataframe (read in from shapefile) that within bounding box.
+    Arguments:
+    ---------
+    : geo_df (gpd.GeoDataFrame)
+
+    : region (namedtuple Region object)
+        object with following attributes:
+         region.latmin, region.latmax, region.lonmin, region.lonmax
+
+
+    Uses gpd.cx:
+        > In addition to the standard pandas methods, GeoPandas also provides coordinate based indexing with the cx indexer, which slices using a bounding box. Geometries in the GeoSeries or GeoDataFrame that intersect the bounding box will be returned.
+
+    https://gis.stackexchange.com/a/266833/123489
+    """
+    ymin, ymax, xmin, xmax = region.latmin, region.latmax, region.lonmin, region.lonmax
+    return geo_df.cx[xmin:xmax, ymin:ymax]
+
+fig,ax = plot_geog_location(all_region)
+river_network.plot(ax=ax)
+fig.suptitle('RIVER NETWORK (from HydroSHEDS)')
+fig.savefig(BASE_FIG_DIR / "ALL_RIVERS.png")
+
+
+
+
+
+
+# ==============================================================================
+
 from pysheds.grid import Grid
+
+grid = Grid.from_raster(BASE_DATA_DIR / "hydrosheds_direction" / "af_dir_15s" /"af_dir_15s", data_name='dir')
+
+
+x=lookup_gdf.iloc[0].XCorrected
+y=lookup_gdf.iloc[0].YCorrected
+# Specify directional mapping
+dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
+
+grid.catchment(data='dir', x=x, y=y, dirmap=dirmap, out_name='catch',
+               recursionlimit=15000, xytype='label')
+grid.clip_to('catch')
+grid.view('catch')
 
 # grid = Grid.from_raster(BASE_DATA_DIR/'hydrosheds'/'n30w100_con', data_name='dem')
 # grid.read_raster('n30w100_dir', data_name='dir')
@@ -874,6 +1067,57 @@ def label_basins():
     assert False, "Not Implemented!"
     return
 
+
+import shapefile as shp
+from osgeo import osr
+
+
+dst_file =BASE_DATA_DIR / 'all_region' / 'all_region.shp'
+target_epsg = 4326
+
+latmin = all_region.latmin
+latmax = all_region.latmax
+lonmin = all_region.lonmin
+lonmax = all_region.lonmax
+
+ul = [lonmin,latmax]
+ur = [lonmax,latmax]
+ll = [lonmin,latmin]
+lr = [lonmax,latmin]
+
+print(ul)
+print(ur)
+print(ll)
+print(lr)
+
+
+
+w = shp.Writer()
+w.shapeType = 5
+# add a "name" field of type "Character"
+w.field('name', 'C')
+w.poly([[
+    ul,
+    ur,
+    lr,
+    ll,
+    ul
+]])
+w.record('testpolygon')
+w.save(dst_file)
+# create ESRI prj-file
+sr = osr.SpatialReference()
+sr.ImportFromEPSG(target_epsg)
+sr.MorphToESRI()
+with open(dst_file.as_posix().replace('.shp', '.prj'), 'w') as prj:
+    prj.write(sr.ExportToWkt())
+
+
+region_test = gpd.read_file(dst_file)
+
+# fig,ax = plot_geog_location()
+fig,ax=plt.subplots()
+region_test.plot(ax=ax)
 
 
 #%%
