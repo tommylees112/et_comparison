@@ -285,6 +285,7 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
 # ------------------------------------------------------------------------------
 # Spatial Subplots
 # ------------------------------------------------------------------------------
+# TODO: implement a plotting function for ANY inset axes to plot ANYthing on it
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 

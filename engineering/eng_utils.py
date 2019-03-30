@@ -12,6 +12,37 @@ import itertools
 # https://pytesmo.readthedocs.io/en/latest/introduction.html
 
 # ------------------------------------------------------------------------------
+# Working with spatial analysis
+# ------------------------------------------------------------------------------
+import pyproj
+import shapely.ops as ops
+from shapely.geometry.polygon import Polygon
+from functools import partial
+
+
+def compute_area_of_geom(geom):
+    """ compute the area of a polygon using pyproj on a shapely object
+
+    https://gis.stackexchange.com/a/166421/123489
+    https://gis.stackexchange.com/questions/127607/area-in-km-from-polygon-of-coordinates
+    """
+    # assert isinstance(geom, shapely.geometry.multipolygon.MultiPolygon), f"geom should be of type: shapely.geometry.multipolygon.MultiPolygon, currently: {type(geom)}"
+
+    geom_area = ops.transform(
+        partial(
+            pyproj.transform,
+            pyproj.Proj(init='EPSG:4326'),
+            pyproj.Proj(
+                proj='aea',
+                lat1=geom.bounds[1],
+                lat2=geom.bounds[3])),
+        geom)
+
+    return geom_area.area
+
+
+
+# ------------------------------------------------------------------------------
 # Working with Time Variables
 # ------------------------------------------------------------------------------
 

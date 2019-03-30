@@ -37,6 +37,7 @@ from engineering.eng_utils import get_variables_for_comparison1
 from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import calculate_monthly_mean_std
 from engineering.eng_utils import calculate_monthly_std
+from engineering.eng_utils import select_pixel, turn_tuple_to_point
 
 # import data plotting functions
 from plotting.plots import plot_stations_on_region_map
@@ -903,6 +904,9 @@ lookup_basin[np.nan] = np.nan
 r = get_lookup_val(xr_obj=river_ds, variable='river_basins',
         new_variable='basin_code', lookup_dict=lookup_basin
 )
+
+
+from engineering.eng_utils import compute_area_of_geom
 
 import pyproj
 import shapely.ops as ops
