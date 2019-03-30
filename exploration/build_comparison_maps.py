@@ -59,7 +59,7 @@ from plotting.plots import add_point_location_to_map
 from plotting.plot_utils import get_colors
 
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
-BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting2')
+BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting4')
 
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]
@@ -88,9 +88,13 @@ unique_wsheds = np.unique(drop_nans_and_flatten(wsheds.coord_name))
 
 .where()
 
-
-
-
+#%%
+# ------------------------------------------------------------------------------
+# GRUN runoff data
+# ------------------------------------------------------------------------------
+r = xr.open_dataset(BASE_DATA_DIR/"GRUN_v1_GSWP3_WGS84_05_1902_2014.nc").Runoff
+r = r.sel(lat=slice(region.latmin,region.latmax),lon=slice(region.lonmin,region.lonmax))
+r = r.sel(time=slice(ds.time.min(), ds.time.max()))
 #%%
 # ------------------------------------------------------------------------------
 # ADDING Climate zones
@@ -345,13 +349,17 @@ seas_std.where((ds.lat < 3.7) | (seas_std > 13) | ).plot(ax=ax)
 
 # -----------------------------------
 
-# lat,lon
-loc1 = (2.407,38.1)
-loc2 = (10.29, 37.3)
-loc3 = (39.4,12.7)
+# lon,lat
+loc1 = (38.1,2.407)
+loc2 = (37.3,10.29)
+loc3 = (12.7,39.4)
 
 point1 = turn_tuple_to_point(loc1)
 point2 = turn_tuple_to_point(loc2)
+
+
+# TODO extract these functions
+from engineering.eng_utils import select_pixel, turn_tuple_to_point
 
 def select_pixel(ds, loc):
     """ (lat,lon) """
@@ -361,99 +369,43 @@ def select_pixel(ds, loc):
 def turn_tuple_to_point(loc):
     """ (lat,lon) """
     from shapely.geometry.point import Point
-    point = Point(loc[1], loc[0])
+    point = Point(loc[0], loc[1])
     return point
 
 
-# def plot_da_timeseries(da, ax):
-
-
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
-
-def plot_inset_map2(fig, ax, region, borders=False, lakes=False, rivers=False):
-    """ """
-    pad = 0.05
-    w = 0.4
-    h = 0.25
-
-    a = ax.get_position()
-    ax2 = fig.add_axes([a.x1-(w+pad)*a.width, a.y1-(h+pad)*a.height, w*a.width, h*a.height], projection=cartopy.crs.PlateCarree())
-
-    # plot the region
-    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
-    ax2.add_feature(cartopy.feature.COASTLINE)
-    if borders:
-        ax2.add_feature(cartopy.feature.BORDERS, linestyle=':')
-    if lakes:
-        ax2.add_feature(cartopy.feature.LAKES)
-    if rivers:
-        river_feature = get_river_features()
-        ax2.add_feature(river_feature)
-    ax2.set_extent([lonmin, lonmax, latmin, latmax])
-
-    return ax2
 
 
 
-def plot_inset_map(ax, region, borders=False, lakes=False, rivers=False):
-    """ """
-    axins = inset_axes(
-        ax,
-        width="40%",
-        height="40%",
-        loc="upper right",
-        axes_class=cartopy.mpl.geoaxes.GeoAxes,
-        axes_kwargs=dict(map_projection=cartopy.crs.PlateCarree())
-    )
-    ipdb.set_trace()
-    axins.tick_params(labelleft=False, labelbottom=False)
 
-    # plot the region
-    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
-    axins.add_feature(cartopy.feature.COASTLINE)
-    if borders:
-        axins.add_feature(cartopy.feature.BORDERS, linestyle=':')
-    if lakes:
-        axins.add_feature(cartopy.feature.LAKES)
-    if rivers:
-        river_feature = get_river_features()
-        axins.add_feature(river_feature)
-    axins.set_extent([lonmin, lonmax, latmin, latmax])
+from plotting.plots import plot_pixel_tseries, plot_inset_map
 
-    return axins
+loc3 = (40,5)
+# pixel_normed = select_pixel(normed_pcp, loc3)
 
-
-
-def plot_pixel_tseries(da, loc, ax, map_plot=False):
-    """ (lat, lon) = (y, x) """
-    pixel_da = select_pixel(da, loc)
-
-    pixel_da.plot.line(ax=ax, marker='o')
-    # TODO: how to set the labels to months
-    # import calendar
-    # ax.set_xticklabels([m for m in calendar.month_abbr if m != ''])
-    # ax.grid(True)
-
-    if map_plot:
-        # get the whole domain from the regions
-        from engineering.regions import regions
-        region = regions[0]
-        # plot an inset map
-        fig = plt.gcf()
-        ax2 = plot_inset_map(fig, ax, region, borders=True, lakes=True, rivers=True)
-        point = turn_tuple_to_point(loc)
-        add_point_location_to_map(point, ax, **{'s':2})
-
-    return ax
-
-
-pixel_normed = select_pixel(normed_pcp, loc1)
 fig,ax = plt.subplots()
-plot_pixel_tseries(normed_pcp, loc1, ax, map_plot=True)
+plot_pixel_tseries(normed_pcp, loc3, ax, map_plot=True)
 
 
+fig, ax = plt.subplots()
+ax.plot([4,5,3,1,2])
+axins = inset_axes(ax, width="40%", height="40%", loc="upper right",
+                   axes_class=cartopy.mpl.geoaxes.GeoAxes,
+                   axes_kwargs=dict(map_projection=cartopy.crs.PlateCarree()))
+axins.add_feature(cartopy.feature.COASTLINE)
+axins.add_feature(cartopy.feature.BORDERS)
+axins.scatter(point.x,
+       point.y,
+       transform=cartopy.crs.PlateCarree(),
+       c='black')
+plt.show()
 
+
+# TEST
+loc3 = (40,5)
+point = turn_tuple_to_point(loc3)
+fig,ax = plt.subplots()
+ax2 = plot_inset_map(ax, all_region, borders=True , lakes=True)
+add_point_location_to_map(point, ax2, **{'color':'black'})
 
 pixel_normed = select_pixel(normed_pcp, loc2)
 fig,ax = plt.subplots()

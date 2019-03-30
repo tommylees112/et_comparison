@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import shapely
 
 # statistical tests
 from scipy import stats
@@ -15,6 +16,7 @@ import cartopy
 # import cartopy.crs as ccrs
 # import cartopy.feature as cpf
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import warnings
 import itertools
@@ -27,7 +29,7 @@ from engineering.eng_utils import get_variables_for_comparison1
 from engineering.eng_utils import get_variables_for_comparison2
 from engineering.eng_utils import get_unmasked_data
 from engineering.eng_utils import get_non_coord_variables
-
+from engineering.eng_utils import select_pixel, turn_tuple_to_point
 
 # ------------------------------------------------------------------------------
 # Histograms (Marginal Distributions)
@@ -147,7 +149,7 @@ def hexbin_jointplot_sns(d1, d2, col1, col2, bins='log', mincnt=0.5, xlabel='', 
     jp.ax_joint.set_xlabel(xlabel)
     jp.ax_joint.set_ylabel(ylabel)
 
-    plt.tight_layout()
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     return jp
 
 
@@ -278,6 +280,112 @@ def plot_masked_spatial_and_hist(dataMask, DataArrays, colors, titles, scale=1.5
         # plot_masked_histogram(ax_hist, dataArray, color, dataset)
 
     return fig
+
+
+# ------------------------------------------------------------------------------
+# Spatial Subplots
+# ------------------------------------------------------------------------------
+
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+
+def plot_inset_map2(ax, region, borders=False, lakes=False, rivers=False):
+    """ """
+    pad = 0.05
+    w = 0.4
+    h = 0.25
+
+    a = ax.get_position()
+    fig=plt.gcf()
+    ax2 = fig.add_axes([a.x1-(w+pad)*a.width, a.y1-(h+pad)*a.height, w*a.width, h*a.height], projection=cartopy.crs.PlateCarree())
+
+    # plot the region
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
+    ax2.add_feature(cartopy.feature.COASTLINE)
+    if borders:
+        ax2.add_feature(cartopy.feature.BORDERS, linestyle=':')
+    if lakes:
+        ax2.add_feature(cartopy.feature.LAKES)
+    if rivers:
+        river_feature = get_river_features()
+        ax2.add_feature(river_feature)
+    ax2.set_extent([lonmin, lonmax, latmin, latmax])
+
+    return ax2
+
+
+
+def plot_inset_map(
+    ax, region,
+    borders=False, lakes=False, rivers=False,  plot_point=False, point=None
+):
+    """ """
+    axins = inset_axes(
+        ax,
+        width="40%",
+        height="40%",
+        loc="upper right",
+        axes_class=cartopy.mpl.geoaxes.GeoAxes,
+        axes_kwargs=dict(map_projection=cartopy.crs.PlateCarree())
+    )
+    axins.tick_params(labelleft=False, labelbottom=False)
+
+    # plot the region
+    lonmin,lonmax,latmin,latmax = region.lonmin,region.lonmax,region.latmin,region.latmax
+    axins.add_feature(cartopy.feature.COASTLINE)
+    if borders:
+        axins.add_feature(cartopy.feature.BORDERS, linestyle=':')
+    if lakes:
+        axins.add_feature(cartopy.feature.LAKES)
+    if rivers:
+        river_feature = get_river_features()
+        axins.add_feature(river_feature)
+    if plot_point:
+        assert point!=None
+        axins.scatter(point.x,
+               point.y,
+               transform=cartopy.crs.PlateCarree(),
+               c='black'
+        )
+    axins.set_extent([lonmin, lonmax, latmin, latmax])
+
+    print(type(axins))
+    return axins
+
+
+
+def plot_pixel_tseries(da, loc, ax, map_plot=False):
+    """ (lat, lon) = (y, x) """
+    pixel_da = select_pixel(da, loc)
+
+    pixel_da.plot.line(ax=ax, marker='o')
+    # TODO: how to set the labels to months
+    # import calendar
+    # ax.set_xticklabels([m for m in calendar.month_abbr if m != ''])
+    # ax.grid(True)
+
+    # plot a
+    if map_plot:
+        # get the whole domain from the regions
+        from engineering.regions import regions
+        region = regions[0]
+        # plot an inset map
+        fig = plt.gcf()
+        point = turn_tuple_to_point(loc)
+        ax2 = plot_inset_map2(ax, region, borders=True)
+        add_point_location_to_map(point, ax2, **{'color':'black'})
+        # ax2 = plot_inset_map(
+        #     ax, region,
+        #     borders=True, lakes=True, plot_point=True, point=point
+        # )
+        # print(type(ax2))
+
+    return ax
+
+
+
+
+
 
 # ------------------------------------------------------------------------------
 # Temporal Plots / timeseries
@@ -435,7 +543,7 @@ def plot_seasonal_spatial_means(seasonal_da, **kwargs):
         season_str = str(seasonal_da.isel(season=i).season.values)
         ax.set_title(f"{var} {season_str}")
 
-    plt.tight_layout()
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     return fig
 
 
@@ -515,7 +623,7 @@ def plot_seasonal_comparisons_ET_diff(seasonal_ds, **kwargs):
             ax.set_xlabel('')
             ax.set_ylabel('')
 
-    plt.tight_layout()
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return fig
 

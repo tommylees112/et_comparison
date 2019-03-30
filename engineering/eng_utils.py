@@ -184,6 +184,23 @@ def mask_multiple_conditions(da, vals_to_keep):
     return msk
 
 
+#
+# Extracting individual pixels
+#
+
+def select_pixel(ds, loc):
+    """ (lat,lon) """
+    return ds.sel(lat=loc[1],lon=loc[0],method='nearest')
+
+
+def turn_tuple_to_point(loc):
+    """ (lat,lon) """
+    from shapely.geometry.point import Point
+    point = Point(loc[1], loc[0])
+    return point
+
+
+
 # ------------------------------------------------------------------------------
 # Collapsing Time Dimensions
 # ------------------------------------------------------------------------------

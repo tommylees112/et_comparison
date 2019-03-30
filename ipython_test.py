@@ -47,7 +47,7 @@ from engineering.eng_utils import create_double_year
 from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import calculate_monthly_mean_std
 from engineering.eng_utils import calculate_monthly_std
-
+from engineering.eng_utils import select_pixel, turn_tuple_to_point
 
 # import data plotting functions
 from plotting.plots import plot_stations_on_region_map
@@ -66,6 +66,7 @@ from plotting.plots import plot_seasonality
 from plotting.plots import plot_normalised_seasonality
 from plotting.plots import get_variables_for_comparison1, plot_mean_time, plot_seasonal_comparisons_ET_diff
 from plotting.plots import add_point_location_to_map
+from plotting.plots import plot_pixel_tseries, plot_inset_map
 
 #
 from plotting.plot_utils import get_colors
@@ -73,7 +74,7 @@ from plotting.plot_utils import get_colors
 
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 BASE_DIR = Path('/soge-home/projects/crop_yield/et_comparison')
-BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting2')
+BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting4')
 
 # clean data
 ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
@@ -156,6 +157,8 @@ def read_station_metadata():
     lookup_df = pd.read_csv(BASE_DATA_DIR / 'Qgis_GHA_glofas_062016_forTommy.csv')
     lookup_gdf = read_csv_point_data(lookup_df, lat_col='YCorrected', lon_col='XCorrected')
     lookup_gdf['corrected_river_name'] = lookup_gdf.RiverName.apply(str.lower)
+    lookup_gdf['NAME'] = lookup_gdf.index
+
     return lookup_gdf
 
 
@@ -169,6 +172,7 @@ def read_station_flow_data():
     df = df.drop(columns='DATE')
     # select the date range
     df = df['2001-01-01':'2005-12-31']
+    df = df.dropna(how='all',axis=1)
 
     return df
 
