@@ -6,6 +6,8 @@ from preprocessing.holaps_cleaner import HolapsCleaner
 from preprocessing.modis_cleaner import ModisCleaner
 from preprocessing.gleam_cleaner import GleamCleaner
 from preprocessing.chirps_cleaner import ChirpsCleaner
+from preprocessing.grun_cleaner import GrunCleaner
+
 from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner
 from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
@@ -18,6 +20,9 @@ if __name__ == "__main__":
     m = ModisCleaner()
     m.preprocess()
 
+    gr = GrunCleaner()
+    gr.preprocess()
+
     c = ChirpsCleaner()
     c.preprocess()
 
@@ -25,7 +30,7 @@ if __name__ == "__main__":
     e.preprocess()
 
     # merge the preprocessed data and save to netcdf
-    ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data)
+    ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data, gr.clean_data)
     ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration, ds.chirps_precipitation)
     assert (ds.chirps_precipitation.isnull() == ds.holaps_evapotranspiration.isnull()).mean() == 1., "the missing (nan) values should be exactly the same in all products!"
 
