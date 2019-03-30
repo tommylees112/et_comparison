@@ -361,27 +361,35 @@ point2 = turn_tuple_to_point(loc2)
 
 # TODO extract these functions
 from engineering.eng_utils import select_pixel, turn_tuple_to_point
-
-def select_pixel(ds, loc):
-    """ (lat,lon) """
-    return ds.sel(lat=loc[1],lon=loc[0],method='nearest')
-
-
-def turn_tuple_to_point(loc):
-    """ (lat,lon) """
-    from shapely.geometry.point import Point
-    point = Point(loc[0], loc[1])
-    return point
-
-
-
-
-
-
 from plotting.plots import plot_pixel_tseries, plot_inset_map
+
+
 
 loc3 = (40,5)
 # pixel_normed = select_pixel(normed_pcp, loc3)
+
+# PLOT THE SEASONAL CYCLE FOR 100 POINTS IN THE ROI
+scale=5
+lons=np.linspace(round(ds.lon.min().values.item()), int(ds.lon.max().values.item()), 10)
+lats=np.linspace(round(ds.lat.min().values.item()), int(ds.lat.max().values.item()), 10)
+lats=lats[::-1]
+
+fig,axs = plt.subplots(10,10,figsize=(12*scale,8*scale),sharey=True)
+for lon_ix, lon in enumerate(lons):
+    for lat_ix, lat in enumerate(lats):
+        ax = axs[lat_ix,lon_ix]
+        loc = (lon,lat)
+        plot_pixel_tseries(normed_pcp, loc, ax, map_plot=True)
+        ax.set_title('')
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        ax.set_xticklabels('')
+        ax.set_yticklabels('')
+
+fig = plt.gcf()
+# fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+# fig.suptitle('Seasonality of Rains Across East Africa')
+fig.savefig(BASE_FIG_DIR / 'SEASONALITY_of_RAINS_across_EA.png')
 
 fig,ax = plt.subplots()
 plot_pixel_tseries(normed_pcp, loc3, ax, map_plot=True)
@@ -945,18 +953,6 @@ for row in range(len(basins_subset)):
 # COMPUTE AREAS IN m-2
 areas = [compute_area_of_geom(row['geometry']) for (ix,row) in basins_subset.iterrows()]
 basins_subset['areas'] = areas
-
-
-
-geom_area = ops.transform(
-    partial(
-        pyproj.transform,
-        pyproj.Proj(init='EPSG:4326'),
-        pyproj.Proj(
-            proj='aea',
-            lat1=geom.bounds[1],
-            lat2=geom.bounds[3])),
-    geom)
 
 
 # first 2 digits are significant! (drop the first one (-0.))

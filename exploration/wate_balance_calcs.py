@@ -22,8 +22,9 @@ import xarray as xr
 import numpy as np
 import geopandas as gpd
 import shapely
+from pathlib import Path
 
-
+BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting4')
 # pour point id to geoid
 pp_to_geoid_map = {
     # blue_nile
@@ -441,6 +442,7 @@ variables = [var for var in ds.variables.keys() if var not in dims]
 evap_variables = [var for var in variables if "precip" not in var]
 
 colors  = [h_col, g_col, m_col, c_col] = get_colors()
+mult_10 = False
 
 for ix, station in station_lkup.iterrows():
     geoid = station.ID
@@ -480,9 +482,14 @@ for ix, station in station_lkup.iterrows():
 
     # plot timeseries of the flows (MONTHLY)
     fig,ax = plt.subplots(figsize=(12,8))
-    (flows*10)[nonnull_times].plot(ax=ax, color=h_col, alpha=0.7, kind='bar')
-    fig.suptitle(f'{geoid} Station RAW Flows (* 10 ????)')
-    fig.savefig(BASE_FIG_DIR/f"{geoid}_station_flow_legit_*10.png")
+    if mult_10:
+        (flows*10)[nonnull_times].plot(ax=ax, color=h_col, alpha=0.7, kind='bar')
+        fig.suptitle(f'{geoid} Station RAW Flows (* 10 ????)')
+        fig.savefig(BASE_FIG_DIR/f"{geoid}_station_flow_legit_*10.png")
+    else:
+        (flows)[nonnull_times].plot(ax=ax, color=h_col, alpha=0.7, kind='bar')
+        fig.suptitle(f'{geoid} Station RAW Flows')
+        fig.savefig(BASE_FIG_DIR/f"{geoid}_station_flow_legit_NORMAL.png")
 
     # PLOT P-E timeseries
     fig,ax = plt.subplots(figsize=(12,8))
@@ -493,21 +500,23 @@ for ix, station in station_lkup.iterrows():
 
     # PLOT P-E timeseries ANNUALLY
     annual_p_e = d_p_min_e.groupby('time.year').mean(['lat','lon','time']).drop('chirps_precipitation')
-    # TODO: wtf are you multiplying by 10?
-    warnings.warn('MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no senese')
-    annual_flow = flows.resample('Y').mean() * 10
+
+    if mult_10:
+        # TODO: wtf are you multiplying by 10?
+        warnings.warn('MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no senese')
+        annual_flow = flows.resample('Y').mean() * 10
+        label = 'Annual Runoff (mean) *10'
+    else:
+        annual_flow = flows.resample('Y').mean()
+        label='Annual Runoff (mean)'
+
     fig,ax = plt.subplots(figsize=(12,8))
     annual_p_e.to_dataframe().plot.bar(ax=ax)
-    annual_flow.plot.bar(ax=ax,zorder=0,alpha=0.4, color='black',label='Annual Runoff (mean) *10')
+    annual_flow.plot.bar(ax=ax,zorder=0,alpha=0.4, color='black',label=label)
     ax.axhline(y=0, linestyle=":", alpha=0.7,color='black', )
     plt.legend()
     fig.suptitle(f'{geoid} Annual (P-E) vs. Runoff values')
     fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_p-e_ANNUAL.png")
-
-
-
-# fig,ax=plt.subplots(); d_p_min_e.groupby('time.year').mean(dim='time').isel(year=0).holaps_evapotranspiration.plot(cmap="RdBu",ax=ax)
-# fig,ax=plt.subplots(); d_p_min_e.groupby('time.year').mean(dim='time').isel(year=1).holaps_evapotranspiration.plot(cmap="RdBu",ax=ax)
 
     # Plot the mean spatial patterns in the basin
     fig,axs = plt.subplots(2,2, figsize=(12,8), sharey=True, sharex=True);
@@ -560,8 +569,11 @@ for ix, station in station_lkup.iterrows():
         ax = axs[np.unravel_index(jx, (2,2))]
 
         wbalance_seasonality.plot.line(marker='o', color=color, ax=ax)
-        warnings.warn('L496: MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no sense')
-        (flow_seasonality*10).plot.bar(color=color, ax=ax)
+        if mult_10:
+            warnings.warn('L496: MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no sense')
+            (flow_seasonality*10).plot.bar(color=color, ax=ax)
+        else:
+            flow_seasonality.plot.bar(color=color, ax=ax)
         ax.set_title(f' CHIRPS - {var} (LINES), and {geoid} (BARS) flow')
         ax.axhline(y=0, linestyle=":")
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -575,7 +587,8 @@ for ix, station in station_lkup.iterrows():
         p_minus_e = d_annual.chirps_precipitation - d_annual[var]
         # ======== GROUP BY YEAR ===============
         p_minus_e_annual = p_minus_e.mean(dim=['lat','lon'])
-        warnings.warn('L4506: MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no sense')
+        if mult_10:
+            warnings.warn('L506: MULTIPLYING FLOWS BY 10 because more realistic numbers but makes no sense')
         flow_annual = flows.groupby(by=[flows.index.year]).mean()
         time = pd.to_datetime(p_minus_e_annual.time.values)
         # =======================================

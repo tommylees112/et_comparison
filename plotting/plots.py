@@ -350,16 +350,18 @@ def plot_inset_map(
         )
     axins.set_extent([lonmin, lonmax, latmin, latmax])
 
-    print(type(axins))
     return axins
 
 
 
-def plot_pixel_tseries(da, loc, ax, map_plot=False):
+def plot_pixel_tseries(da, loc, ax, map_plot=False, marker=False):
     """ (lat, lon) = (y, x) """
     pixel_da = select_pixel(da, loc)
 
-    pixel_da.plot.line(ax=ax, marker='o')
+    if marker:
+        pixel_da.plot.line(ax=ax, marker='o')
+    else:
+        pixel_da.plot.line(ax=ax)
     # TODO: how to set the labels to months
     # import calendar
     # ax.set_xticklabels([m for m in calendar.month_abbr if m != ''])
@@ -373,12 +375,12 @@ def plot_pixel_tseries(da, loc, ax, map_plot=False):
         # plot an inset map
         fig = plt.gcf()
         point = turn_tuple_to_point(loc)
-        ax2 = plot_inset_map2(ax, region, borders=True)
+        # ax2 = plot_inset_map2(ax, region, borders=True)
+        ax2 = plot_inset_map(
+            ax, region,
+            borders=True, lakes=True, plot_point=True, point=point
+        )
         add_point_location_to_map(point, ax2, **{'color':'black'})
-        # ax2 = plot_inset_map(
-        #     ax, region,
-        #     borders=True, lakes=True, plot_point=True, point=point
-        # )
         # print(type(ax2))
 
     return ax
