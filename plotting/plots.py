@@ -51,7 +51,10 @@ def plot_marginal_distribution(DataArray, color, ax=None, title='', xlabel='DEFA
     warnings.warn('Hardcoding the values of the units becuase they should have already been converted to mm day-1')
 
     if title == '':
-        title= f'Density Plot of {DataArray.name} [mm day-1]\nmin: {min:.2f} max: {max:.2f} mean: {mean:.2f} median: {median:.2f} '
+        if summary:
+            title= f'Density Plot of {DataArray.name} [mm day-1]\nmin: {min:.2f} max: {max:.2f} mean: {mean:.2f} median: {median:.2f} '
+        else:
+            title= f'Density Plot of {DataArray.name} [mm day-1]'
 
     ax.set_title(title)
 
@@ -318,14 +321,15 @@ def plot_inset_map2(ax, region, borders=False, lakes=False, rivers=False):
 
 def plot_inset_map(
     ax, region,
-    borders=False, lakes=False, rivers=False,  plot_point=False, point=None
+    borders=False, lakes=False, rivers=False,  plot_point=False, point=None,
+    width=40%, height=40%,loc="upper right"
 ):
     """ """
     axins = inset_axes(
         ax,
-        width="40%",
-        height="40%",
-        loc="upper right",
+        width=width,
+        height=height,
+        loc=loc,
         axes_class=cartopy.mpl.geoaxes.GeoAxes,
         axes_kwargs=dict(map_projection=cartopy.crs.PlateCarree())
     )

@@ -23,6 +23,8 @@ from functools import partial
 def compute_area_of_geom(geom):
     """ compute the area of a polygon using pyproj on a shapely object
 
+    Output in m^2
+
     https://gis.stackexchange.com/a/166421/123489
     https://gis.stackexchange.com/questions/127607/area-in-km-from-polygon-of-coordinates
     """

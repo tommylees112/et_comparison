@@ -8,11 +8,14 @@
     the raw daily runoff (monthly) in [mm day-1] for the stations we have data for
 
 : station_lkup (gpd.GeoDataFrame)
-    the metadata associated with the stations that we have data for
+    the metadata associated with the stations that we have data for (LEGIT STATIONS)
 
 
 :  wsheds_shp (gpd.GeoDataFrame)
 
+
+: wshed_masks (xr.Dataset)
+    netcdf/xr.Dataset of the station watersheds as boolean fields
 """
 
 import warnings
@@ -207,6 +210,85 @@ wsheds_shp = read_watershed_shp()
 lookup_gdf = read_station_metadata()
 
 
+# JOIN into the associated basin shapes
+pp_to_polyid_map = {
+    'G1686': [ 1,  0,  3, 10],
+    'G1685': [ 3, 10],
+    'G1067': [15],
+    'G1074': [15,  7],
+    'G1053': [15,  7,  5],
+    'G1045': [15,  7,  5,  2],
+    'G1603': [11]
+}
+
+
+def merge_shapefiles(wsheds_shp, pp_to_polyid_map):
+    # https://stackoverflow.com/a/40386377/9940782
+    # unary_union or #geo_df.loc[pp_to_polyid_map[geoid]].dissolve('geometry')
+    # https://stackoverflow.com/a/40386377/9940782
+    out_shp_geoms=[]
+    for geoid in pp_to_polyid_map.keys():
+        geoms = wsheds_shp.loc[pp_to_polyid_map[geoid]].geometry
+
+        out_shp_geoms.append(shapely.ops.unary_union(geoms))
+
+    # OUTPUT into one dataframe
+    gdf = gpd.GeoDataFrame(
+        {
+            "geoid":[geoid for geoid in pp_to_polyid_map.keys()],
+            "number":np.arange(0,7),
+            "geometry":out_shp_geoms
+        },
+        geometry='geometry'
+    )
+
+    return gdf
+
+
+# COMPUTE AREA OF GEOM
+from engineering.eng_utils import compute_area_of_geom
+
+# FROM THE MERGED DATA
+gdf = merge_shapefiles(wsheds_shp, pp_to_polyid_map)
+areas = {}
+for geom in gdf.geometry.values:
+    print(compute_area_of_geom(geom))
+
+# FROM THE UNMERGED DATA
+areas = {}
+for geoid in pp_to_polyid_map.keys():
+    geoms = wsheds_shp.loc[pp_to_polyid_map[geoid]].geometry
+    area = 0
+    for geom in geoms:
+        area += compute_area_of_geom(geom)
+
+    areas[geoid] = area
+    print(area)
+
+def compute_areas_for_pour_points():
+    """ """
+    return
+
+# compare the areas
+lookup_gdf.loc[np.isin(lookup_gdf.ID,[key for key in areas.keys()])]
+[(geoid,area//1e6) for (geoid,area) in zip(areas.keys(), areas.values())]
+
+def plot_polygon(ax, polygon, color=(0.12156862745098039, 0.4666666666666667, 0.7058823529411765)):
+    from descartes import PolygonPatch
+    x,y = polygon.exterior.xy
+    ax = fig.add_subplot(111)
+    ax.plot(x, y, color='#6699cc', alpha=0.7,
+        linewidth=3, solid_capstyle='round', zorder=2)
+    ax.set_title('Polygon')
+    # pp = PolygonPatch(polygon,color=color)
+    # ax.add_patch(pp)
+
+    return ax
+
+# TODO: how to merge these shapefiles?
+gdf= merge_shapefiles(wsheds_shp, pp_to_polyid_map)
+
+
 # 1. CLEAN THE STATION RUNOFF DATA
 # get only the relevant stations
 df2 = df[my_stations]
@@ -227,7 +309,7 @@ basins_mask_map = create_basins_merged_map(wsheds, pp_to_polyid_map)
 wshed_masks = create_wshed_mask_da(wsheds,basins_mask_map,BASE_DATA_DIR)
 
 # vars for plotting help
-dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint']
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
 variables = [var for var in ds.variables.keys() if var not in dims]
 evap_variables = [var for var in variables if "precip" not in var]
 
@@ -372,7 +454,7 @@ station_lkup.apply(lambda x: ax.annotate(s=x.ID, xy=x.geometry.centroid.coords[0
 fig.suptitle('Location of Stations [mm day-1]')
 fig.savefig(BASE_FIG_DIR / "AAstation_locations_for_analysis.png")
 
-dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint']
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
 variables = [var for var in ds.variables.keys() if var not in dims]
 evap_variables = [var for var in variables if "precip" not in var]
 
@@ -436,14 +518,16 @@ for ix, station in station_lkup.iterrows():
     fig.suptitle(f'{geoid} Station Seasonality [mm day-1]')
     fig.savefig(BASE_FIG_DIR / f"_{geoid}_station_watershed_area_plot.png")
 
-#
-dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint']
+# ------------------------------------------------------------------------------
+# PLOT FOR EACH STATION
+# ------------------------------------------------------------------------------
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
 variables = [var for var in ds.variables.keys() if var not in dims]
 evap_variables = [var for var in variables if "precip" not in var]
 
 colors  = [h_col, g_col, m_col, c_col] = get_colors()
-mult_10 = False
 
+mult_10 = False
 for ix, station in station_lkup.iterrows():
     geoid = station.ID
     pp_id = station.NAME
@@ -463,11 +547,11 @@ for ix, station in station_lkup.iterrows():
     shed = mask_multiple_conditions(wsheds.watershed_for_pourpoint, polyids)
 
     # get watershed area
-    d = ds[variables].where(shed)
+    d = ds[variables + ['grun_runoff']].where(shed)
     # get the times where there is data for that station
     d = d.sel(time=nonnull_times)
     # P-E calculation
-    d_p_min_e = d.chirps_precipitation - d
+    d_p_min_e = d.chirps_precipitation - d.drop('grun_runoff')
 
     # mean spatial patterns?
     d_time = d.mean(['lat','lon'])
@@ -510,10 +594,11 @@ for ix, station in station_lkup.iterrows():
         annual_flow = flows.resample('Y').mean()
         label='Annual Runoff (mean)'
 
+    grun_annual = d_annual.grun_runoff.mean(dim=['lat','lon'])
     fig,ax = plt.subplots(figsize=(12,8))
-    annual_p_e.to_dataframe().plot.bar(ax=ax)
-    annual_flow.plot.bar(ax=ax,zorder=0,alpha=0.4, color='black',label=label)
-    ax.axhline(y=0, linestyle=":", alpha=0.7,color='black', )
+    annual_p_e.to_dataframe().plot.bar(ax=ax,zorder=0)
+    annual_flow.plot.bar(ax=ax,alpha=0.4, color='black',label=label)
+    ax.axhline(y=0, linestyle=":", alpha=0.7,color='black')
     plt.legend()
     fig.suptitle(f'{geoid} Annual (P-E) vs. Runoff values')
     fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_p-e_ANNUAL.png")
@@ -605,7 +690,9 @@ for ix, station in station_lkup.iterrows():
 
     plt.close('all')
 
-
+# ------------------------------------------------------------------------------
+#
+# ------------------------------------------------------------------------------
 fig,ax = plt.subplots()
 p_minus_e_annual = p_minus_e.mean(dim=['lat','lon'])
 flow_annual = flows.groupby(by=[flows.index.year]).mean()
@@ -621,9 +708,413 @@ ax.set_title(f' CHIRPS - {var} (LINES), and {geoid} (BARS) flow for each YEAR (2
 ax.axhline(y=0, linestyle=":")
 plt.show()
 
+# ==============================================================================
+# GRUN runoff data
+# ==============================================================================
+mod = ds.chirps_precipitation - ds.modis_evapotranspiration - ds.grun_runoff
+hlp = ds.chirps_precipitation - ds.holaps_evapotranspiration - ds.grun_runoff
+glm = ds.chirps_precipitation - ds.gleam_evapotranspiration - ds.grun_runoff
+p_minus_r = ds.chirps_precipitation - ds.grun_runoff
 
-# # GRUN runoff data
-# # TODO: put onto same grid as other products
-# grun = xr.open_dataset(BASE_DATA_DIR/"GRUN_v1_GSWP3_WGS84_05_1902_2014.nc").Runoff
-# grun = grun.sel(lat=slice(region.latmin,region.latmax),lon=slice(region.lonmin,region.lonmax))
-# grun = grun.sel(time=slice(ds.time.min(), ds.time.max()))
+# PLOT MARGINALS
+plot_marginal_distribution(mod,m_col)
+fig=plt.gcf()
+fig.savefig(BASE_FIG_DIR / 'modis_WATERBALANCE_with_grun_data.png')
+
+plot_marginal_distribution(hlp,h_col)
+fig=plt.gcf()
+fig.savefig(BASE_FIG_DIR / 'holaps_WATERBALANCE_with_grun_data.png')
+
+plot_marginal_distribution(hlp,g_col)
+fig=plt.gcf()
+fig.savefig(BASE_FIG_DIR / 'gleam_WATERBALANCE_with_grun_data.png')
+
+# PLOT OVER TIME STEP (YEARS)
+mod_an = mod.groupby('time.year').mean(dim='time')
+hlp_an = hlp.groupby('time.year').mean(dim='time')
+glm_an = glm.groupby('time.year').mean(dim='time')
+p_minus_r_an = p_minus_r.groupby('time.year').mean(dim='time')
+
+
+# Spatial Patterns
+mod_spatial = mod_an.mean(dim='year')
+hlp_spatial = hlp_an.mean(dim='year')
+glm_spatial = glm_an.mean(dim='year')
+p_minus_r_spatial = p_minus_r_an.mean(dim='year')
+
+kwargs = {'vmin':-2.0,'vmax':2}
+fig,ax=plot_geog_location(all_region,rivers=True,borders=True)
+mod_spatial.plot(ax=ax,cmap='RdBu',**kwargs)
+fig.suptitle('Mean Annual Waterbalance: P - MODIS E - GRUN runoff')
+fig.savefig(BASE_FIG_DIR / 'modis_SPTIAL_WATERBALANCE_with_grun_data.png')
+
+fig,ax=plot_geog_location(all_region,rivers=True,borders=True)
+fig.suptitle('Mean Annual Waterbalance: P - HOLAPS E - GRUN runoff')
+hlp_spatial.plot(ax=ax,cmap='RdBu',**kwargs)
+fig.savefig(BASE_FIG_DIR / 'holaps_SPTIAL_WATERBALANCE_with_grun_data.png')
+
+fig,ax=plot_geog_location(all_region,rivers=True,borders=True)
+fig.suptitle('Mean Annual Waterbalance: P - GLEAM E - GRUN runoff')
+glm_spatial.plot(ax=ax,cmap='RdBu',**kwargs)
+fig.savefig(BASE_FIG_DIR / 'gleam_SPTIAL_WATERBALANCE_with_grun_data.png')
+
+fig,ax=plot_geog_location(all_region,rivers=True,borders=True)
+fig.suptitle('Mean Annual: P - GRUN runoff')
+p_minus_r_spatial.plot(ax=ax)
+fig.savefig(BASE_FIG_DIR / 'P-Runoff_SPTIAL_WATERBALANCE_with_grun_data.png')
+
+
+
+
+# Plot
+plot_marginal_distribution(mod_spatial,m_col)
+ax=plt.gca()
+ax.axvline(x=0,color='black',alpha=0.5,linestyle=':')
+fig=plt.gcf()
+fig.suptitle('Annual Waterbalance: P - MODIS E - GRUN runoff')
+fig.savefig(BASE_FIG_DIR / 'modis_ANNUAL_WATERBALANCE_with_grun_data.png')
+
+plot_marginal_distribution(hlp_spatial,h_col)
+ax=plt.gca()
+ax.axvline(x=0,color='black',alpha=0.5,linestyle=':')
+fig=plt.gcf()
+fig.suptitle('Annual Waterbalance: P - HOLAPS E - GRUN runoff')
+fig.savefig(BASE_FIG_DIR / 'holaps_ANNUAL_WATERBALANCE_with_grun_data.png')
+
+plot_marginal_distribution(glm_spatial,g_col)
+ax=plt.gca()
+ax.axvline(x=0,color='black',alpha=0.5,linestyle=':')
+fig=plt.gcf()
+fig.suptitle('Annual Waterbalance: P - GLEAM E - GRUN runoff')
+fig.savefig(BASE_FIG_DIR / 'gleam_ANNUAL_WATERBALANCE_with_grun_data.png')
+
+
+
+def get_bounding_box(xr_mask, name='mask'):
+    """ from an xarray boolean field, get the bounding box of the 1 values (TRUE)
+
+    Returns:
+    -------
+    : region (Region namedtuple)
+    """
+    from engineering.regions import Region
+    region = Region(
+        region_name=name,
+        latmin=,
+        latmax=,
+        lonmin=,
+        lonmax=
+    )
+
+    return region
+
+
+def netcdf_mask_to_shapefile():
+    """ convert an xr.DataArray boolean mask (.nc) to a .shp file """
+    raise NotImplementedError
+    return
+
+
+#
+for ix, station in station_lkup.iterrows():
+    geoid = station.ID
+    pp_id = station.NAME
+    geoid_col = geoid
+    polyids = pp_to_polyid_map[geoid]
+    print(geoid, polyids)
+    station_meta = station_lkup.loc[station_lkup.ID == geoid]
+
+    # get the flows for the NON NULL timesteps
+    flows = lgt_stations[geoid_col]
+    nonnull_times = flows.index[~flows.isnull()]
+    print(f"There are {len(nonnull_times)} timesteps for the station {geoid} with data")
+    flows = flows[nonnull_times]
+
+    # get the watershed mask
+    shed = wshed_masks[geoid]
+
+    # get the runoff for the wshed mask
+    ds_shed = ds.where(shed)
+    ds_shed = ds_shed.sel(time=nonnull_times)
+    # get pcp and
+    grun_shed = ds_shed.grun_runoff
+    pcp_shed = ds_shed.chirps_precipitation
+    # wb calcs
+    wb_shed = ds_shed.chirps_precipitation - ds_shed
+    wb_shed = wb_shed[[var for var in variables if 'evap' in var]]
+
+
+    # Plot comparison of GRUN and Stations
+    fig,ax=plt.subplots(figsize=(12,8))
+    grun_shed.mean(dim=['lat','lon']).plot.line(ax=ax, label='GRUN monthly mean [mm day-1]')
+    flows.plot.line(ax=ax, label='Station Runoff Monthly Mean [mm day-1]')
+    plt.legend()
+    fig.suptitle(f"{geoid} Station Comparison of GRUN and Station Data")
+    fig.savefig(BASE_FIG_DIR / f"{geoid}_comparison_of_GRUN_w_stations.png")
+
+    # plot comparison of the RAW SEASONALITY
+    fig,ax=plt.subplots(figsize=(12,8))
+    grun_shed.mean(dim=['lat','lon']).groupby('time.month').mean().plot.line(ax=ax, label='GRUN monthly mean [mm day-1]')
+    flows.groupby(by=[flows.index.month]).mean().plot.line(ax=ax, label='Station Runoff Monthly Mean [mm day-1]')
+    plt.legend()
+    fig.suptitle(f"{geoid} Station Comparison of GRUN and Station Data Seasonality")
+    fig.savefig(BASE_FIG_DIR / f"{geoid}_comparison_of_GRUN_w_stations_SEASONALITY.png")
+
+
+    # PLOT ALL VARIABLES
+    fig,axs = plt.subplots(3,2,figsize=(12,8))
+    for ix, var in enumerate(variables + ['grun_runoff']):
+        ax_ix = np.unravel_index(ix,(3,2))
+        ax = axs[ax_ix]
+        if 'evapo' in var:
+            kwargs={'vmin':0,'vmax':3}
+            ds_shed[var].mean(dim='time').plot(ax=ax,**kwargs)
+        else:
+            ds_shed[var].mean(dim='time').plot(ax=ax)
+
+        ax.set_title(f'{var}')
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        ax.set_xticklabels('')
+        ax.set_yticklabels('')
+
+    # the final axes plot a timeseries
+    ax = axs[2,1]
+    # wb_shed.mean(dim=['lat','lon']).to_dataframe().plot.line(ax=ax)
+    flows.plot.bar(ax=ax,color='gray',label='Station Runoff',zorder=0)
+    ax.set_title('Station Ru noff (Monthly Mean [mm day-1])')
+    ax.set_xticklabels('')
+
+    sns.barplot(x=flows.index, y=flows.values, ax=ax)
+    fig.suptitle(f"{geoid} Comparison of Mean Spatial Patterns")
+    fig.savefig(BASE_FIG_DIR / f"{geoid}_comparison_of_mean_spatial_patterns.png")
+
+
+# ==============================================================================
+# Plot over all timesteps
+# ==============================================================================
+
+dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
+variables = [var for var in ds.variables.keys() if var not in dims]
+evap_variables = [var for var in variables if "precip" not in var]
+
+colors  = [h_col, g_col, m_col, c_col] = get_colors()
+
+
+mult_10 = False
+for ix, station in station_lkup.iterrows():
+    geoid = station.ID
+    pp_id = station.NAME
+    geoid_col = geoid
+    polyids = pp_to_polyid_map[geoid]
+    print(geoid, polyids)
+    station_meta = station_lkup.loc[station_lkup.ID == geoid]
+
+    # get the flows for the NON NULL timesteps
+    flows = lgt_stations[geoid_col]
+    nonnull_times = flows.index[~flows.isnull()]
+    print(f"There are {len(nonnull_times)} timesteps for the station {geoid} with data")
+    flows = flows[nonnull_times]
+
+    monthly_flows = flows.groupby(by=[flows.index.month]).mean()
+    # get a (lat,lon) mask for the watershed
+    shed = mask_multiple_conditions(wsheds.watershed_for_pourpoint, polyids)
+
+    # get watershed area
+    d = ds[variables + ['grun_runoff']].where(shed)
+    # get the times where there is data for that station
+    d = d.sel(time=nonnull_times)
+    # P-E calculation
+    d_p_min_e = (d.chirps_precipitation - d.drop('grun_runoff')).drop('chirps_precipitation')
+
+    # mean spatial patterns?
+    d_time = d.mean(['lat','lon'])
+    # mean over the year
+    d_annual = d.resample(time='Y').mean()
+
+    grun_annual = d_annual.grun_runoff.mean(dim=['lat','lon'])
+
+    # -------------------------------
+    # PLOT over all times -----------
+    # -------------------------------
+
+    d_all_time = d.mean(dim=['time','lat','lon'])
+    d_all_p_min_e = (d_all_time.chirps_precipitation - d_all_time.drop('grun_runoff')).drop('chirps_precipitation')
+    df_ = pd.DataFrame({
+        "holaps_evapotranspiration":d_all_p_min_e.holaps_evapotranspiration.values,
+        "gleam_evapotranspiration":d_all_p_min_e.gleam_evapotranspiration.values,
+        "modis_evapotranspiration":d_all_p_min_e.modis_evapotranspiration.values
+    }, index=[0])
+    all_flow = flows.mean()
+
+
+    fig,ax = plt.subplots(figsize=(12,8))
+
+    # plot the P-E products
+    df_.plot.bar(ax=ax,zorder=0)
+    # plot the station flows
+    ax.bar(x=0,height=all_flow, alpha=0.4, color='black',label='Station Runoff')
+    # plot the gridded runoff vals
+    ax.bar(x=0,height=d_all_time.grun_runoff.values, alpha=0.4, color='m',label='Gridded Runoff')
+
+    ax.axhline(y=0, linestyle=":", alpha=0.7,color='black')
+    plt.legend()
+    fig.suptitle(f'{geoid} All Time (P-E) vs. Runoff values')
+    fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_p-e_ALL_TIMES.png")
+
+# ==============================================================================
+# Plot over all basins over all time
+# ==============================================================================
+# wshed_masks
+for ix, station in station_lkup.iterrows():
+    geoid = station.ID
+    pp_id = station.NAME
+    geoid_col = geoid
+    polyids = pp_to_polyid_map[geoid]
+    print(geoid, polyids)
+    station_meta = station_lkup.loc[station_lkup.ID == geoid]
+
+    # get the flows for the NON NULL timesteps
+    flows = lgt_stations[geoid_col]
+    nonnull_times = flows.index[~flows.isnull()]
+    print(f"There are {len(nonnull_times)} timesteps for the station {geoid} with data")
+    flows = flows[nonnull_times]
+
+    # get the watershed mask
+    shed = wshed_masks[geoid]
+
+    # get the runoff for the wshed mask
+    ds_shed = ds.where(shed)
+    ds_shed.mean()
+
+dims = [dim for dim in wshed_masks.dims.keys()] + ['time']
+wshed_keys = [var for var in wshed_masks.variables.keys() if var not in dims]
+
+
+
+def scalar_xr_ob_to_df(xr_ds):
+    """ convert a scalar xarray object (no dims) to df"""
+    df = (
+        pd.DataFrame(
+            xr_ds.to_dict()['data_vars']
+        )
+        .loc['data']
+        .to_frame()
+    )
+
+    return df.T
+
+
+def scalar_xr_to_dict(xr_ds):
+    """ """
+    raw_dict = xr_ds.to_dict()['data_vars']
+    keys = [key for key in raw_dict.keys()]
+    new_dict = {}
+    for key in keys:
+        new_dict[key] = raw_dict[key]['data']
+
+    return new_dict
+
+
+flws = []
+hlps = []
+glm = []
+mdis = []
+run = []
+stns = []
+for geoid in wshed_keys:
+    print(geoid)
+    d = ds.where(wshed_masks[geoid]).drop(["countries", "watershed_for_pourpoint"])
+    d_p_min_e = (d.chirps_precipitation - d.drop('grun_runoff')).drop('chirps_precipitation')
+
+    # get the flows for the NON NULL timesteps
+    flows = lgt_stations[geoid]
+    nonnull_times = flows.index[~flows.isnull()]
+    print(f"There are {len(nonnull_times)} timesteps for the station {geoid} with data")
+    flows = flows[nonnull_times]
+
+    # get the point location of the basin
+    point = station_lkup.loc[station_lkup.ID == geoid].geometry.values[0]
+
+    # plot all times ()
+    # calculate mean all time for each basin
+    d_mean = d.mean()
+    d_p_min_e_mean = d_p_min_e.mean()
+    p_min_e_dict = scalar_xr_to_dict(d_p_min_e_mean)
+    mean_dict = scalar_xr_to_dict(d_mean)
+
+    mean_hlps = p_min_e_dict['holaps_evapotranspiration']
+    mean_modis = p_min_e_dict['modis_evapotranspiration']
+    mean_gleam = p_min_e_dict['gleam_evapotranspiration']
+    mean_runoff = mean_dict['grun_runoff']
+    mean_flow = flows.mean()
+
+    # ONE for each basin mean
+    stns.append(geoid)
+    hlps.append(mean_hlps)
+    mdis.append(mean_modis)
+    glm.append(mean_gleam)
+    run.append(mean_runoff)
+    flws.append(mean_flow)
+
+    # plot for the basin
+    stn_df = pd.DataFrame({
+        "holaps_evapotranspiration":mean_hlps,
+        "modis_evapotranspiration":mean_modis,
+        "gleam_evapotranspiration":mean_gleam,
+        "grun_runoff":mean_runoff,
+        "station_flows":mean_flow,
+    }, index=[0])
+
+
+    fig,ax = plt.subplots(figsize=(12,8))
+    # all_mean[["holaps_evapotranspiration","modis_evapotranspiration","gleam_evapotranspiration"]].plot(kind='bar',ax=ax)
+    ax.bar(x=0,height=mean_hlps, label='P - HOLAPS')
+    ax.bar(x=1,height=mean_modis, label='P - GLEAM')
+    ax.bar(x=2,height=mean_gleam, label='P - MODIS')
+    ax.bar(x=1, width=3, height=mean_runoff, color='m', alpha=0.5, label='GRUN Runoff')
+    ax.bar(x=1, width=3, height=mean_flow, color='b', alpha=0.5, label='Station Runoff')
+    ax.set_title(f'Average P-E and Runoff for Catchment of Station {geoid}')
+    plt.xticks(rotation=10)
+    ax.set_xticklabels('')
+    plt.legend(loc='lower left')
+    ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True)#, height=25%,width=25%,loc='lower right')
+    add_point_location_to_map(point, ax2, **{'color':'black'})
+    fig.savefig(BASE_FIG_DIR / f"{geoid}_average_basin_water_balance_comparison_ALL_timesteps.png")
+
+
+out_df = pd.DataFrame({
+    "stations":stns,
+    "holaps_evapotranspiration":hlps,
+    "modis_evapotranspiration":mdis,
+    "gleam_evapotranspiration":glm,
+    "grun_runoff":run,
+    "station_flows":flws,
+})
+all_mean = out_df.mean()
+
+# ALL BASINS
+fig,ax = plt.subplots(figsize=(12,8))
+# all_mean[["holaps_evapotranspiration","modis_evapotranspiration","gleam_evapotranspiration"]].plot(kind='bar',ax=ax)
+ax.bar(x=0,height=all_mean.holaps_evapotranspiration, label='P - Holaps')
+ax.bar(x=1,height=all_mean.gleam_evapotranspiration, label='P - Gleam')
+ax.bar(x=2,height=all_mean.modis_evapotranspiration, label='P - Chirps')
+ax.bar(x=1, width=3, height=all_mean.grun_runoff, color='m', alpha=0.5, label='GRUN Runoff')
+ax.bar(x=1, width=3, height=all_mean.station_flows, color='b', alpha=0.5, label='Station Runoff')
+ax.set_xticklabels('')
+ax.set_title('Average P-E and Runoff (Gridded (GRUN) and Station) for all Basins')
+plt.xticks(rotation=10)
+plt.legend(loc='lower left')
+# ax2 = plot_inset_map(ax, all_region, borders=True , lakes=True)
+# add_point_location_to_map(point, ax2, **{'color':'black'})
+fig.savefig(BASE_FIG_DIR / f"ALL_STATIONS_average_basin_water_balance_comparison_ALL_timesteps.png")
+
+
+
+
+    # plot only valid station data times
+
+
+
+
+#

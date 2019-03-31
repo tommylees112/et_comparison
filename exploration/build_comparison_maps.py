@@ -274,14 +274,21 @@ dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen',
 variables = [var for var in ds.variables.keys() if var not in dims]
 
 
-def normalised_monthly_mean_std():
+def normalised_monthly_mean_std(d):
     """ """
     d_mean = calculate_monthly_mean(d)
     d_std = calculate_monthly_std(d)
 
     norm_mth = d_mth.apply(lambda x: (x / x.sum(dim='month'))*100)
     norm_mth = norm_mth.mean(dim=['lat','lon'])
+    norm_mth.name = 'normalised_mean_monthly'
 
+    norm_std = d_std.apply(lambda x: (x / x.sum(dim='month'))*100)
+    norm_std = norm_std.mean(dim=['lat','lon'])
+    norm_mth.name = 'normalised_std_monthly'
+
+    ds = xr.merge([norm_mth, norm_std])
+    return
 
 # TOMMY I WAS HERE
 # TODO: turn this into a function call

@@ -10,7 +10,7 @@ figs/svg/*
 *.sketch
 
 figs/*.png
-
+literature.md
 .DS_Store
 
 *.nc
