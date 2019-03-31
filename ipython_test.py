@@ -48,6 +48,7 @@ from engineering.eng_utils import get_non_coord_variables
 from engineering.eng_utils import calculate_monthly_mean_std
 from engineering.eng_utils import calculate_monthly_std
 from engineering.eng_utils import select_pixel, turn_tuple_to_point
+from engineering.eng_utils import scalar_xr_to_dict
 
 # import data plotting functions
 from plotting.plots import plot_stations_on_region_map

@@ -145,6 +145,7 @@ def calculate_flow_per_day(df, lookup_gdf):
 
     return df
 
+
 def create_basins_merged_map(wsheds, pp_to_polyid_map):
     """
     Arguments:
@@ -200,6 +201,17 @@ def create_wshed_mask_da(
     wshed_masks.to_netcdf(BASE_DATA_DIR / 'PP_wshed_masks.nc')
 
     return wshed_masks
+
+
+def scalar_xr_to_dict(xr_ds):
+    """ """
+    raw_dict = xr_ds.to_dict()['data_vars']
+    keys = [key for key in raw_dict.keys()]
+    new_dict = {}
+    for key in keys:
+        new_dict[key] = raw_dict[key]['data']
+
+    return new_dict
 
 
 coord_name = "watershed_for_pourpoint"
@@ -307,6 +319,10 @@ wsheds = add_shape_coord_from_data_array(
 
 basins_mask_map = create_basins_merged_map(wsheds, pp_to_polyid_map)
 wshed_masks = create_wshed_mask_da(wsheds,basins_mask_map,BASE_DATA_DIR)
+# dims = [dim for dim in wshed_masks.dims.keys()] + ['time']
+wshed_keys = [var for var in wshed_masks.variables.keys() if var not in dims]
+
+
 
 # vars for plotting help
 dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
@@ -315,6 +331,14 @@ evap_variables = [var for var in variables if "precip" not in var]
 
 colors  = [h_col, g_col, m_col, c_col] = get_colors()
 
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
 
 # --------- PLOTS ------------
 fig,ax = plt.subplots()

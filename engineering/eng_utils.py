@@ -11,6 +11,22 @@ import itertools
 # package for comparing soil moisture datasets:
 # https://pytesmo.readthedocs.io/en/latest/introduction.html
 
+
+# ------------------------------------------------------------------------------
+# Working with scalar datasets
+# ------------------------------------------------------------------------------
+
+def scalar_xr_to_dict(xr_ds):
+    """ """
+    raw_dict = xr_ds.to_dict()['data_vars']
+    keys = [key for key in raw_dict.keys()]
+    new_dict = {}
+    for key in keys:
+        new_dict[key] = raw_dict[key]['data']
+
+    return new_dict
+
+
 # ------------------------------------------------------------------------------
 # Working with spatial analysis
 # ------------------------------------------------------------------------------
