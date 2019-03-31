@@ -322,7 +322,7 @@ def plot_inset_map2(ax, region, borders=False, lakes=False, rivers=False):
 def plot_inset_map(
     ax, region,
     borders=False, lakes=False, rivers=False,  plot_point=False, point=None,
-    width=40%, height=40%,loc="upper right"
+    width="40%", height="40%",loc="upper right"
 ):
     """ """
     axins = inset_axes(
