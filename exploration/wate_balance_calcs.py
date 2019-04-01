@@ -214,6 +214,21 @@ def scalar_xr_to_dict(xr_ds):
     return new_dict
 
 
+
+def get_mask_for_all_watersheds(wshed_masks):
+    valid_mask = (
+        wshed_masks["G1045"].where(wshed_masks["G1045"] == 1).isnull().astype(bool) &
+        wshed_masks["G1053"].where(wshed_masks["G1053"] == 1).isnull().astype(bool) &
+        wshed_masks["G1067"].where(wshed_masks["G1067"] == 1).isnull().astype(bool) &
+        wshed_masks["G1074"].where(wshed_masks["G1074"] == 1).isnull().astype(bool) &
+        wshed_masks["G1603"].where(wshed_masks["G1603"] == 1).isnull().astype(bool) &
+        wshed_masks["G1685"].where(wshed_masks["G1685"] == 1).isnull().astype(bool) &
+        wshed_masks["G1686"].where(wshed_masks["G1686"] == 1).isnull().astype(bool)
+    )
+    ALL_SHEDS = ~valid_mask
+    return ALL_SHEDS.drop('time')
+
+
 coord_name = "watershed_for_pourpoint"
 shp_path = BASE_DATA_DIR / "marcus_help" / "watershed_areas_shp" / "Watershed_Areas.shp"
 
@@ -319,10 +334,10 @@ wsheds = add_shape_coord_from_data_array(
 
 basins_mask_map = create_basins_merged_map(wsheds, pp_to_polyid_map)
 wshed_masks = create_wshed_mask_da(wsheds,basins_mask_map,BASE_DATA_DIR)
-# dims = [dim for dim in wshed_masks.dims.keys()] + ['time']
+dims = [dim for dim in wshed_masks.dims.keys()] + ['time']
 wshed_keys = [var for var in wshed_masks.variables.keys() if var not in dims]
 
-
+ALL_SHEDS = get_mask_for_all_watersheds(wshed_masks)
 
 # vars for plotting help
 dims = [dim for dim in ds.dims.keys()] + ['countries', 'climate_zone', 'koppen', 'koppen_code', 'watershed_for_pourpoint', 'grun_runoff']
@@ -1028,7 +1043,7 @@ def scalar_xr_ob_to_df(xr_ds):
 
     return df.T
 
-
+# from engineering.eng_utils import scalar_xr_to_dict
 def scalar_xr_to_dict(xr_ds):
     """ """
     raw_dict = xr_ds.to_dict()['data_vars']
@@ -1039,7 +1054,7 @@ def scalar_xr_to_dict(xr_ds):
 
     return new_dict
 
-
+plt.close('all')
 flws = []
 hlps = []
 glm = []
@@ -1101,9 +1116,15 @@ for geoid in wshed_keys:
     ax.set_title(f'Average P-E and Runoff for Catchment of Station {geoid}')
     plt.xticks(rotation=10)
     ax.set_xticklabels('')
+    ax.set_ylim([-0.5,2.2])
     plt.legend(loc='lower left')
-    ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True)#, height=25%,width=25%,loc='lower right')
+
+    # add the inset map location for the location of the station
+    ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True, height="25%",width="25%",loc='lower right')
     add_point_location_to_map(point, ax2, **{'color':'black'})
+    # plot mask for the location
+    (~d.isel(time=0).holaps_evapotranspiration.isnull()).drop('time').plot(ax=ax2,zorder=0,alpha=0.3,cmap='Wistia',add_colorbar=False)
+    ax2.set_title('Watershed')
     fig.savefig(BASE_FIG_DIR / f"{geoid}_average_basin_water_balance_comparison_ALL_timesteps.png")
 
 
@@ -1120,23 +1141,102 @@ all_mean = out_df.mean()
 # ALL BASINS
 fig,ax = plt.subplots(figsize=(12,8))
 # all_mean[["holaps_evapotranspiration","modis_evapotranspiration","gleam_evapotranspiration"]].plot(kind='bar',ax=ax)
-ax.bar(x=0,height=all_mean.holaps_evapotranspiration, label='P - Holaps')
-ax.bar(x=1,height=all_mean.gleam_evapotranspiration, label='P - Gleam')
-ax.bar(x=2,height=all_mean.modis_evapotranspiration, label='P - Chirps')
+ax.bar(x=0,height=all_mean.holaps_evapotranspiration, label='P - HOLAPS')
+ax.bar(x=1,height=all_mean.gleam_evapotranspiration, label='P - GLEAM')
+ax.bar(x=2,height=all_mean.modis_evapotranspiration, label='P - MODIS')
 ax.bar(x=1, width=3, height=all_mean.grun_runoff, color='m', alpha=0.5, label='GRUN Runoff')
 ax.bar(x=1, width=3, height=all_mean.station_flows, color='b', alpha=0.5, label='Station Runoff')
 ax.set_xticklabels('')
 ax.set_title('Average P-E and Runoff (Gridded (GRUN) and Station) for all Basins')
 plt.xticks(rotation=10)
+ax.set_ylim([-0.5,2.2])
 plt.legend(loc='lower left')
-# ax2 = plot_inset_map(ax, all_region, borders=True , lakes=True)
-# add_point_location_to_map(point, ax2, **{'color':'black'})
+
+# add the inset map location for the location of ALL BASINS
+ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True, height="25%",width="25%",loc='upper right')
+# plot mask for the location
+ALL_SHEDS.plot(ax=ax2,zorder=0,alpha=0.3,cmap='Wistia',add_colorbar=False)
+ax2.set_title('')
 fig.savefig(BASE_FIG_DIR / f"ALL_STATIONS_average_basin_water_balance_comparison_ALL_timesteps.png")
 
 
+valid_mask = (
+    wshed_masks["G1045"].where(wshed_masks["G1045"] == 1).isnull().astype(bool) &
+    wshed_masks["G1053"].where(wshed_masks["G1053"] == 1).isnull().astype(bool) &
+    wshed_masks["G1067"].where(wshed_masks["G1067"] == 1).isnull().astype(bool) &
+    wshed_masks["G1074"].where(wshed_masks["G1074"] == 1).isnull().astype(bool) &
+    wshed_masks["G1603"].where(wshed_masks["G1603"] == 1).isnull().astype(bool) &
+    wshed_masks["G1685"].where(wshed_masks["G1685"] == 1).isnull().astype(bool) &
+    wshed_masks["G1686"].where(wshed_masks["G1686"] == 1).isnull().astype(bool)
+)
+ALL_SHEDS = ~valid_mask
 
-
+fig,ax=plt.subplots()
+ALL_SHEDS.plot(ax=ax)
     # plot only valid station data times
+
+
+# DO FOR ENTIRE REGION
+p_min_e = (ds.chirps_precipitation - ds)[evap_variables]
+wb_all = p_min_e - ds.grun_runoff
+results = scalar_xr_to_dict(wb_all.mean())
+std = scalar_xr_to_dict(wb_all.std())
+variation = {station : ((results[station]-std[station]), (results[station]+std[station])) for station in results.keys()}
+y_errs = {station : ((results[station]+std[station]) - (results[station]-std[station])) for station in results.keys()}
+ALL_AREA = (~ds.chirps_precipitation.isel(time=0).isnull()).drop('time')
+
+
+#
+fig,ax=plt.subplots(figsize=(12,8))
+ax.bar(color=h_col,x=0,height=results['holaps_evapotranspiration'], yerr=y_errs['holaps_evapotranspiration'], label='P - HOLAPS - Runoff')
+ax.bar(color=g_col,x=1,height=results['gleam_evapotranspiration'], yerr=y_errs['gleam_evapotranspiration'], label='P - GLEAM - Runoff')
+ax.bar(color=m_col,x=2,height=results['modis_evapotranspiration'], yerr=y_errs['modis_evapotranspiration'], label='P - MODIS - Runoff')
+# ax.set_ylim([-0.5,0.5])
+ax.set_xticklabels('')
+ax.axhline(y=0, linestyle=':', color='black', alpha=0.5)
+ax.set_ylabel('Water Balance [mm day-1]')
+plt.legend(loc='upper left')
+ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True, height="25%",width="25%",loc='upper right')
+# plot mask for the location
+ALL_AREA.plot(ax=ax2,zorder=0,alpha=0.3,cmap='Wistia',add_colorbar=False)
+ax2.set_title('')
+ax.set_title('Average P-E - Runoff (Gridded [GRUN]) for Whole Area')
+fig.savefig(BASE_FIG_DIR/"ALL_AREA_BAR_CHART_OF_WATER_BALANCE.png")
+
+
+# PLOT HISTOGRAMS
+col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
+DATA=wb_all.mean(dim='time')
+for var in evap_variables:
+    fig,ax=plt.subplots(figsize=(12,8))
+    color = col_lookup[var]
+    var_name = var.split('_')[0].upper()
+    plot_marginal_distribution(DATA[var], ax=ax,color=color, title=f'Water Balance Calculation Histogram with {var_name}', summary=True, **{'kde':False,'hist':True, 'bins':300})
+    ax.axvline(x=0,linestyle=':',color='black',alpha=0.5)
+    ax.set_xlim([-4,3])
+    ax.set_ylim([0,4100])
+    fig.savefig(BASE_FIG_DIR / f"{var_name}_distribution_of_water_balance_calcs_ALLTIME.png")
+
+DATA=wb_all.mean(dim='time')
+fig,ax=plt.subplots(figsize=(12,8))
+for var in evap_variables:
+    color = col_lookup[var]
+    var_name = var.split('_')[0].upper()
+    plot_marginal_distribution(DATA[var],ax=ax,color=color, title=f'Water Balance Calculation Histograms', summary=True, **{'kde':False,'hist':True, 'bins':300, 'label':var_name})
+    ax.axvline(x=0,linestyle=':',color='black',alpha=0.5)
+    ax.set_xlim([-4,3])
+    ax.set_ylim([0,4100])
+    plt.legend()
+
+fig.savefig(BASE_FIG_DIR / f"ALLVARS_distribution_of_water_balance_calcs_ALLTIME.png")
+
+
+# drop_nans_and_flatten(wb_all.holaps_evapotranspiration)
+# drop_nans_and_flatten(wb_all.modis_evapotranspiration)
+# all_gleam = drop_nans_and_flatten(wb_all.gleam_evapotranspiration)
+
+
+
 
 
 

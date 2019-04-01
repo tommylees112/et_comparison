@@ -189,3 +189,4 @@ def select_stations_in_river_name(lookup_gdf, river_name="Blue Nile"):
 
 df = read_station_flow_data()
 lookup_gdf = read_station_metadata()
+col_lookup = dict(zip(evap_das+["chirps_precipitation"], [h_col,g_col,m_col,c_col]))
