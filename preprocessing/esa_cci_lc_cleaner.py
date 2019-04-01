@@ -63,3 +63,18 @@ class EsaCciCleaner(Cleaner):
         )
         print("\n\n ESA CCI LandCover Preprocessed \n\n")
         return
+
+        def preprocess2(self):
+            # regrid to same as reference data (holaps)
+            self.regrid_to_reference(method='bilinear')
+            # ipdb.set_trace()
+            # use the same mask as HOLAPS
+            self.use_reference_mask(one_time=True) # THIS GOING WRONG (NEEDS only one time dim)
+            # rename data
+            self.rename_xr_object("esa_cci_landcover")
+            # save data
+            save_netcdf(
+                self.clean_data, filepath=self.base_data_path / "esa_lc_EA_clean.nc"
+            )
+            print("\n\n ESA CCI LandCover Preprocessed \n\n")
+            return

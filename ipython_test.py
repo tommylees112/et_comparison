@@ -78,16 +78,12 @@ BASE_DIR = Path('/soge-home/projects/crop_yield/et_comparison')
 BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting5')
 
 # clean data
-ds = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/processed_ds.nc")
+ds = xr.open_dataset(BASE_DATA_DIR/"processed_ds2.nc")
+ds_= xr.open_dataset(BASE_DATA_DIR/"processed_ds.nc")
 h = ds.holaps_evapotranspiration.copy()
 m = ds.modis_evapotranspiration.copy()
 g = ds.gleam_evapotranspiration.copy()
 
-# drop yemen from the data
-from engineering.mask_using_shapefile import add_shape_coord_from_data_array
-country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
-ds = add_shape_coord_from_data_array(ds, country_shp_path, coord_name="countries")
-ds = ds.where(ds.countries != 2)
 
 # get country lookup
 shp_gpd = gpd.read_file(country_shp_path)
@@ -95,7 +91,7 @@ country_ids = np.unique(drop_nans_and_flatten(ds.countries))
 countries = shp_gpd.loc[country_ids,'SOVEREIGNT']
 country_lookup = dict(zip(countries.index, countries.values))
 
-
+# landcover data
 lc = xr.open_dataset("/soge-home/projects/crop_yield/EGU_compare/esa_lc_EA_clean.nc")
 
 # df = ds.to_dataframe()

@@ -12,9 +12,7 @@ from preprocessing.grun_cleaner import GrunCleaner
 from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner
 from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
-# if __name__ == "__main__":
-import matplotlib.pyplot as plt
-%matplotlib
+if __name__ == "__main__":
     BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
     gr = GrunCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
@@ -26,6 +24,7 @@ import matplotlib.pyplot as plt
     gr.preprocess2()
     # gr.preprocess2()
 
+    # TODO: you want to have method as an argument to preprocess to avoid having to have 2 different functions!!!!!
     h = HolapsCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
@@ -54,7 +53,7 @@ import matplotlib.pyplot as plt
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
         reference_ds_variable='grun_runoff'
     )
-    c.preprocess2()
+    c.preprocess()
 
     ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data, gr.clean_data)
     ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration, ds.chirps_precipitation)
