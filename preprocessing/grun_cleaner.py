@@ -81,5 +81,8 @@ class GrunCleaner(Cleaner):
 
     def preprocess2(self):
         #
-        self.resample_time(resample_str="M")
-        self.correct_time_slice()
+        self.rename_xr_object("grun_runoff")
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "grun_EA_clean2.nc"
+        )
+        print("\n\n GRUN Preprocessed \n\n")

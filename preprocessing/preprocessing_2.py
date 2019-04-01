@@ -17,7 +17,8 @@ if __name__ == "__main__":
     gr = GrunCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
-        reference_ds_variable='Runoff'
+        reference_ds_variable='Runoff',
+        data_filename='EA_GRUN_ref.nc'
     )
     gr.preprocess()
     # gr.preprocess2()
