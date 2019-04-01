@@ -23,14 +23,14 @@ gr = GrunCleaner(
 gr.preprocess2()
 # gr.preprocess2()
 
-h = HolapsCleaner(
+h2 = HolapsCleaner(
     base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
     reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
     reference_ds_variable='grun_runoff',
     data_path="holaps_EA_clean.nc"
 )
-h.preprocess()
-    # h.preprocess2()
+# h.preprocess()
+h2.preprocess2()
 
     g = GleamCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
