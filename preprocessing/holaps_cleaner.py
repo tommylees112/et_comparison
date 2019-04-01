@@ -31,11 +31,12 @@ class HolapsCleaner(Cleaner):
         self,
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=None,
-        reference_ds_variable=None
+        reference_ds_variable=None,
+        data_path="holaps_africa.nc"
     ):
         # init data paths (should be arguments)
         self.base_data_path = Path(base_data_path)
-        data_path = self.base_data_path / "holaps_africa.nc"
+        data_path = self.base_data_path / data_path
         reproject_path = self.base_data_path / "holaps_africa_reproject.nc"
 
         if reference_data_path != None:

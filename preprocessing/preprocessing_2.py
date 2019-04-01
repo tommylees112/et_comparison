@@ -20,37 +20,38 @@ if __name__ == "__main__":
         reference_ds_variable='Runoff',
         data_filename='EA_GRUN_ref.nc'
     )
-    gr.preprocess()
+    gr.preprocess2()
     # gr.preprocess2()
 
     h = HolapsCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
-        reference_ds_variable='Runoff'
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/grun_EA_clean2.nc"),
+        reference_ds_variable='grun_runoff',
+        data_path="holaps_EA_clean.nc"
     )
     h.preprocess()
     # h.preprocess2()
 
     g = GleamCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
-        reference_ds_variable='Runoff'
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/grun_EA_clean2.nc"),
+        reference_ds_variable='grun_runoff'
     )
     g.preprocess()
     # g.preprocess2()
 
     m = ModisCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
-        reference_ds_variable='Runoff'
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/grun_EA_clean2.nc"),
+        reference_ds_variable='grun_runoff'
     )
     m.preprocess()
     # m.preprocess2()
 
     c = ChirpsCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
-        reference_ds_variable='Runoff'
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/grun_EA_clean2.nc"),
+        reference_ds_variable='grun_runoff'
     )
     c.preprocess()
     # c.preprocess2()
