@@ -48,6 +48,14 @@ class HolapsCleaner(Cleaner):
         self.reproject_path = Path(reproject_path)
 
 
+    def create_clean_dataarray(self):
+        new_da = self.clean_data.holaps_evapotranspiration
+        self.update_clean_data(
+            new_da, msg="Selected the holaps_evapotranspiration from the xr.Dataset"
+        )
+        return
+
+
     def chop_EA_region(self):
         """ cheeky little bit of bash scripting with string interpolation (kids don't try this at home) """
         in_file = self.base_data_path / "holaps_reprojected.nc"
@@ -125,3 +133,12 @@ class HolapsCleaner(Cleaner):
         )
         print("\n\n HOLAPS Preprocessed \n\n")
         return
+
+    def preprocess_2(self):
+        self.create_clean_dataarray()
+        self.regrid_to_reference(method='bilinear')
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "holaps_EA_clean2.nc",
+            force=True
+        )
+        print("\n\n HOLAPS Preprocessed \n\n")
