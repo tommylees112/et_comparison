@@ -77,3 +77,24 @@ class GleamCleaner(Cleaner):
         )
         print("\n\n GLEAM Preprocessed \n\n")
         return
+
+    def preprocess2(self):
+        # Resample the timesteps to END OF MONTH
+        self.resample_time(resample_str="M")
+        # select the correct time slice
+        self.correct_time_slice()
+        # update the units
+        self.convert_units()
+        # regrid to same as reference data (holaps)
+        self.regrid_to_reference(method='bilinear')
+        # ipdb.set_trace()
+        # use the same mask as HOLAPS
+        self.use_reference_mask() # THIS GOING WRONG
+        # rename data
+        self.rename_xr_object("gleam_evapotranspiration")
+        # save data
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "gleam_EA_clean.nc"
+        )
+        print("\n\n GLEAM Preprocessed \n\n")
+        return

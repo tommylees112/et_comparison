@@ -134,7 +134,7 @@ class HolapsCleaner(Cleaner):
         print("\n\n HOLAPS Preprocessed \n\n")
         return
 
-    def preprocess_2(self):
+    def preprocess2(self):
         self.create_clean_dataarray()
         self.regrid_to_reference(method='bilinear')
         save_netcdf(
@@ -142,4 +142,5 @@ class HolapsCleaner(Cleaner):
             force=True
         )
         print("\n\n HOLAPS Preprocessed \n\n")
+        # random change
         return

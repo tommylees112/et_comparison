@@ -14,46 +14,57 @@ from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
 # if __name__ == "__main__":
 import matplotlib.pyplot as plt
-BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
-gr = GrunCleaner(
-    base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-    reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
-    reference_ds_variable='grun_runoff',
-    data_filename='EA_GRUN_ref_masked.nc',
-    data_variable='grun_runoff'
-)
-gr.preprocess2()
-# gr.preprocess2()
+%matplotlib
+    BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
+    gr = GrunCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
+        reference_ds_variable='grun_runoff',
+        data_filename='EA_GRUN_ref_masked.nc',
+        data_variable='grun_runoff'
+    )
+    gr.preprocess2()
+    # gr.preprocess2()
 
-h2 = HolapsCleaner(
-    base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
-    reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
-    reference_ds_variable='grun_runoff',
-    data_path="holaps_EA_clean.nc"
-)
-# h.preprocess()
-h2.preprocess2()
+    h = HolapsCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
+        reference_ds_variable='grun_runoff',
+        data_path="holaps_EA_clean.nc"
+    )
+    h.preprocess2()
 
     g = GleamCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
         reference_ds_variable='grun_runoff'
     )
-    g.preprocess()
-    # g.preprocess2()
+    g.preprocess2()
 
     m = ModisCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
         reference_ds_variable='grun_runoff'
     )
-    m.preprocess()
-    # m.preprocess2()
+    m.preprocess2()
+
 
     c = ChirpsCleaner(
         base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
         reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
         reference_ds_variable='grun_runoff'
     )
-    c.preprocess()
-    # c.preprocess2()
+    c.preprocess2()
+
+    ds = merge_data_arrays(h.clean_data, g.clean_data, m.clean_data, c.clean_data, gr.clean_data)
+    ds = get_all_valid(ds, ds.holaps_evapotranspiration, ds.modis_evapotranspiration, ds.gleam_evapotranspiration, ds.chirps_precipitation)
+    assert (ds.chirps_precipitation.isnull() == ds.holaps_evapotranspiration.isnull()).mean() == 1., "the missing (nan) values should be exactly the same in all products!"
+
+    # drop yemen from the data
+    from engineering.mask_using_shapefile import add_shape_coord_from_data_array
+    country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
+    ds = add_shape_coord_from_data_array(ds, country_shp_path, coord_name="countries")
+    ds = ds.where(ds.countries != 2)
+
+    output_ds_path='/soge-home/projects/crop_yield/EGU_compare/processed_ds2.nc'
+    save_netcdf(ds, output_ds_path, force=True)

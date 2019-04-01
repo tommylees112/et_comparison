@@ -121,3 +121,28 @@ class ModisCleaner(Cleaner):
         )
         print("\n\n MODIS Preprocessed \n\n")
         return
+
+    def preprocess2(self):
+        # Resample the timesteps to END OF MONTH
+        self.resample_time(resample_str="M")
+        # select the correct time slice
+        self.correct_time_slice()
+        # mask the bad values
+        self.mask_illegitimate_values()
+        # swap the axes around!
+        self.swap_modis_axes()
+        # convert the units
+        self.convert_units()
+        # regrid to the same grid as holaps
+        self.rename_lat_lon()
+        self.regrid_to_reference(method='bilinear')
+        # use same mask as holaps
+        self.use_reference_mask()
+        # rename data
+        self.rename_xr_object("modis_evapotranspiration")
+        # save data
+        save_netcdf(
+            self.clean_data, filepath=self.base_data_path / "modis_EA_clean.nc"
+        )
+        print("\n\n MODIS Preprocessed \n\n")
+        return
