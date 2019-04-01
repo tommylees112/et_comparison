@@ -86,6 +86,7 @@ g = ds.gleam_evapotranspiration.copy()
 
 
 # get country lookup
+country_shp_path = BASE_DATA_DIR / "country_shp" / "ne_50m_admin_0_countries.shp"
 shp_gpd = gpd.read_file(country_shp_path)
 country_ids = np.unique(drop_nans_and_flatten(ds.countries))
 countries = shp_gpd.loc[country_ids,'SOVEREIGNT']

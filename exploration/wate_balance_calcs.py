@@ -412,11 +412,11 @@ lookup_gdf.apply(lambda x: ax.annotate(s=x.ID, xy=x.geometry.centroid.coords[0],
 # pour_points = lookup_gdf[['ID','StationName', 'DrainArLDD', 'YCorrected', 'XCorrected','geometry','corrected_river_name']]
 
 # sense checking are the basins further down the river have more flow?
-df.index = pd.to_datetime(df.index)
-fig,ax = plt.subplots()
-stations = ["G1686","G1684"]
-stations = ["G1607","G6088"]
-df[stations].mean()
+# df.index = pd.to_datetime(df.index)
+# fig,ax = plt.subplots()
+# stations = ["G1686","G1684"]
+# stations = ["G1607","G6088"]
+# df[stations].mean()
 # ------------------------------
 
 # 2. subset by the regions of interest
@@ -520,7 +520,6 @@ for ix, station in station_lkup.iterrows():
     # get the MONTHLY flows for the stations
     flows = lgt_stations[geoid_col]
     #
-    legit_timesteps
     monthly_vals = flows.groupby(by=[flows.index.month]).mean()
     shed = mask_multiple_conditions(wsheds.watershed_for_pourpoint, polyids)
 
@@ -539,6 +538,8 @@ for ix, station in station_lkup.iterrows():
         ax = axs[ax_ix]
         d[var].plot.line(ax=ax,marker='o',color=color)
         ax.set_title(f"{var}")
+        if 'precip' not in var:
+            ax.set_ylim([0,3.1 ])
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig.suptitle(f'{geoid} Station Seasonality [mm day-1]')
@@ -557,6 +558,44 @@ for ix, station in station_lkup.iterrows():
     monthly_vals.plot.line(ax=ax, marker="o")
     fig.suptitle(f'{geoid} Station Seasonality [mm day-1]')
     fig.savefig(BASE_FIG_DIR / f"_{geoid}_station_watershed_area_plot.png")
+
+
+# compare timeseries for each station
+plt.close('all')
+for ix, station in station_lkup.iterrows():
+    geoid = station.ID
+    pp_id = station.NAME
+    geoid_col = geoid
+    polyids = pp_to_polyid_map[geoid]
+    print(geoid, polyids)
+    station_meta = station_lkup.loc[station_lkup.ID == geoid]
+    basin = station_lkup.loc[station_lkup.ID == geoid,"RiverBasin"].values[0]
+    # get the flows for the NON NULL timesteps
+    flows = lgt_stations[geoid_col]
+    nonnull_times = flows.index[~flows.isnull()]
+    print(f"There are {len(nonnull_times)} timesteps for the station {geoid} with data")
+    flows = flows[nonnull_times]
+
+    # get the point data
+    point = station_lkup.loc[station_lkup.ID == geoid].geometry.values[0]
+
+    # get the watershed area
+    d = ds[variables + ['grun_runoff']].where(shed)
+    d = d.sel(time=nonnull_times)
+
+    fig,ax=plt.subplots(figsize=(12,8));
+    d.grun_runoff.mean(dim=['lat','lon']).plot(ax=ax, label='GRUN Runoff')
+    flows.plot.line(ax=ax, label='Station Runoff')
+    plt.legend(loc='upper right')
+
+    ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True, height="20%",width="20%",loc='upper left')
+    add_point_location_to_map(point, ax2, **{'color':'black'})
+    # plot mask for the location
+    (~d.isel(time=0).holaps_evapotranspiration.isnull()).drop('time').plot(ax=ax2,zorder=0,alpha=0.7,cmap='Wistia',add_colorbar=False)
+    ax.set_title(f'Comparison of Runoff Values for Station {geoid} in Basin: {basin}')
+    fig.savefig(BASE_FIG_DIR/f'{geoid}_timeseries_comparison2.png')
+
+# TOMMY WAS HERE
 
 # ------------------------------------------------------------------------------
 # PLOT FOR EACH STATION
@@ -830,23 +869,23 @@ fig.savefig(BASE_FIG_DIR / 'gleam_ANNUAL_WATERBALANCE_with_grun_data.png')
 
 
 
-def get_bounding_box(xr_mask, name='mask'):
-    """ from an xarray boolean field, get the bounding box of the 1 values (TRUE)
-
-    Returns:
-    -------
-    : region (Region namedtuple)
-    """
-    from engineering.regions import Region
-    region = Region(
-        region_name=name,
-        latmin=,
-        latmax=,
-        lonmin=,
-        lonmax=
-    )
-
-    return region
+# def get_bounding_box(xr_mask, name='mask'):
+#     """ from an xarray boolean field, get the bounding box of the 1 values (TRUE)
+#
+#     Returns:
+#     -------
+#     : region (Region namedtuple)
+#     """
+#     from engineering.regions import Region
+#     region = Region(
+#         region_name=name,
+#         latmin=,
+#         latmax=,
+#         lonmin=,
+#         lonmax=
+#     )
+#
+#     return region
 
 
 def netcdf_mask_to_shapefile():
@@ -1002,6 +1041,8 @@ for ix, station in station_lkup.iterrows():
     fig.suptitle(f'{geoid} All Time (P-E) vs. Runoff values')
     fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_p-e_ALL_TIMES.png")
 
+plt.close('all')
+
 # ==============================================================================
 # Plot over all basins over all time
 # ==============================================================================
@@ -1056,6 +1097,9 @@ def scalar_xr_to_dict(xr_ds):
     return new_dict
 
 plt.close('all')
+
+LOW = True
+
 flws = []
 hlps = []
 glm = []
@@ -1212,10 +1256,15 @@ for var in evap_variables:
     fig,ax=plt.subplots(figsize=(12,8))
     color = col_lookup[var]
     var_name = var.split('_')[0].upper()
-    plot_marginal_distribution(DATA[var], ax=ax,color=color, title=f'Water Balance Calculation Histogram with {var_name}', summary=True, **{'kde':False,'hist':True, 'bins':300})
+    if LOW:
+        ax.set_ylim([0,100])
+        bins=50
+    else:
+        ax.set_ylim([0,4100])
+        bins=300
+    plot_marginal_distribution(DATA[var], ax=ax,color=color, title=f'Water Balance Calculation Histogram with {var_name}', summary=True, **{'kde':False,'hist':True, 'bins':50})
     ax.axvline(x=0,linestyle=':',color='black',alpha=0.5)
     ax.set_xlim([-4,3])
-    ax.set_ylim([0,4100])
     fig.savefig(BASE_FIG_DIR / f"{var_name}_distribution_of_water_balance_calcs_ALLTIME.png")
 
 DATA=wb_all.mean(dim='time')
@@ -1223,10 +1272,15 @@ fig,ax=plt.subplots(figsize=(12,8))
 for var in evap_variables:
     color = col_lookup[var]
     var_name = var.split('_')[0].upper()
-    plot_marginal_distribution(DATA[var],ax=ax,color=color, title=f'Water Balance Calculation Histograms', summary=True, **{'kde':False,'hist':True, 'bins':300, 'label':var_name})
+    if LOW:
+        ax.set_ylim([0,100])
+        bins=50
+    else:
+        ax.set_ylim([0,4100])
+        bins=300
+    plot_marginal_distribution(DATA[var],ax=ax,color=color, title=f'Water Balance Calculation Histograms', summary=True, **{'kde':False,'hist':True, 'bins':bins, 'label':var_name})
     ax.axvline(x=0,linestyle=':',color='black',alpha=0.5)
     ax.set_xlim([-4,3])
-    ax.set_ylim([0,4100])
     plt.legend()
 
 fig.savefig(BASE_FIG_DIR / f"ALLVARS_distribution_of_water_balance_calcs_ALLTIME.png")
