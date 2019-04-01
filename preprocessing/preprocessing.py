@@ -12,6 +12,7 @@ from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner
 from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
 if __name__ == "__main__":
+    BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 
     h = HolapsCleaner()
     h.preprocess()

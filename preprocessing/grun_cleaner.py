@@ -23,13 +23,17 @@ from preprocessing.cleaner import Cleaner
 class GrunCleaner(Cleaner):
     """Preprocess the GRUN dataset"""
 
-    def __init__(self):
-        self.base_data_path = Path("/soge-home/projects/crop_yield/EGU_compare/")
-        reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
+    def __init__(self,
+    base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+    reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/") / "holaps_EA_clean.nc",
+    reference_ds_variable='holaps_evapotranspiration'
+    ):
+        self.base_data_path = Path(base_data_path)
+        # reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
         data_path = self.base_data_path / "GRUN_v1_GSWP3_WGS84_05_1902_2014.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        self.reference_ds = xr.open_dataset(self.reference_data_path).holaps_evapotranspiration
+        self.reference_ds = xr.open_dataset(self.reference_data_path)[reference_ds_variable]
         super(GrunCleaner, self).__init__(data_path=data_path)
 
         # extract the variable of interest (TO xr.DataArray)
@@ -68,3 +72,5 @@ class GrunCleaner(Cleaner):
         )
         print("\n\n GRUN Preprocessed \n\n")
         return
+
+    def preprocess2(self):

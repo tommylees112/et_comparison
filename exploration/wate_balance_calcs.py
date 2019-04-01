@@ -27,7 +27,8 @@ import geopandas as gpd
 import shapely
 from pathlib import Path
 
-BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting4')
+BASE_FIG_DIR = Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting5')
+
 # pour point id to geoid
 pp_to_geoid_map = {
     # blue_nile

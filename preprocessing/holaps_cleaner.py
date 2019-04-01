@@ -27,11 +27,21 @@ from preprocessing.cleaner import Cleaner
 class HolapsCleaner(Cleaner):
     """Preprocess the HOLAPS dataset"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=None,
+        reference_ds_variable=None
+    ):
         # init data paths (should be arguments)
-        self.base_data_path = Path("/soge-home/projects/crop_yield/EGU_compare/")
+        self.base_data_path = Path(base_data_path)
         data_path = self.base_data_path / "holaps_africa.nc"
         reproject_path = self.base_data_path / "holaps_africa_reproject.nc"
+
+        if reference_data_path != None:
+            self.reference_data_path = Path(reference_data_path)
+            assert reference_ds_variable!=None, f"If reprojecting HOLAPS (not going to be the reference data as is default, then you need to specify the reference_ds_variable)"
+            self.reference_ds = xr.open_dataset(self.reference_data_path)[reference_ds_variable]
 
         super(HolapsCleaner, self).__init__(data_path=data_path)
         self.reproject_path = Path(reproject_path)

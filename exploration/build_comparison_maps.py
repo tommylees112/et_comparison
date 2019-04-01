@@ -61,7 +61,7 @@ from plotting.plots import add_point_location_to_map
 from plotting.plot_utils import get_colors
 
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
-BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting4')
+BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting5')
 
 datasets = ['holaps', 'gleam', 'modis']
 evap_das = [f"{ds}_evapotranspiration" for ds in datasets]

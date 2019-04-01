@@ -28,13 +28,17 @@ from preprocessing.cleaner import Cleaner
 class GleamCleaner(Cleaner):
     """Preprocess the GLEAM dataset"""
 
-    def __init__(self):
-        self.base_data_path = Path("/soge-home/projects/crop_yield/EGU_compare/")
-        reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
+    def __init__(self,
+    base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+    reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/") / "holaps_EA_clean.nc",
+    reference_ds_variable='holaps_evapotranspiration'
+    ):
+        self.base_data_path = Path(base_data_path)
+        # reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
         data_path = self.base_data_path / "EA_GLEAM_evap_transp_2001_2015.nc"
 
         self.reference_data_path = Path(reference_data_path)
-        self.reference_ds = xr.open_dataset(self.reference_data_path).holaps_evapotranspiration
+        self.reference_ds = xr.open_dataset(self.reference_data_path)[reference_ds_variable]
         super(GleamCleaner, self).__init__(data_path=data_path)
 
         # extract the variable of interest (TO xr.DataArray)
