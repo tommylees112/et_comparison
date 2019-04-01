@@ -14,7 +14,42 @@ from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
 if __name__ == "__main__":
     BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
-    gr = GrunCleaner()
+    gr = GrunCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
+        reference_ds_variable='Runoff'
+    )
     gr.preprocess()
+    # gr.preprocess2()
 
-    
+    h = HolapsCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
+        reference_ds_variable='Runoff'
+    )
+    h.preprocess()
+    # h.preprocess2()
+
+    g = GleamCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
+        reference_ds_variable='Runoff'
+    )
+    g.preprocess()
+    # g.preprocess2()
+
+    m = ModisCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
+        reference_ds_variable='Runoff'
+    )
+    m.preprocess()
+    # m.preprocess2()
+
+    c = ChirpsCleaner(
+        base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
+        reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref.nc"),
+        reference_ds_variable='Runoff'
+    )
+    c.preprocess()
+    # c.preprocess2()

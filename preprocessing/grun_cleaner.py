@@ -26,11 +26,17 @@ class GrunCleaner(Cleaner):
     def __init__(self,
     base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
     reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/") / "holaps_EA_clean.nc",
-    reference_ds_variable='holaps_evapotranspiration'
+    reference_ds_variable='holaps_evapotranspiration',
+    data_filename = "GRUN_v1_GSWP3_WGS84_05_1902_2014.nc"
     ):
         self.base_data_path = Path(base_data_path)
         # reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
-        data_path = self.base_data_path / "GRUN_v1_GSWP3_WGS84_05_1902_2014.nc"
+        data_path = self.base_data_path / data_filename
+
+        if reference_data_path != None:
+            self.reference_data_path = Path(reference_data_path)
+            assert reference_ds_variable!=None, f"If reprojecting HOLAPS (not going to be the reference data as is default) then you need to specify the reference_ds_variable for GRUN (to be used as reference data)"
+            self.reference_ds = xr.open_dataset(self.reference_data_path)[reference_ds_variable]
 
         self.reference_data_path = Path(reference_data_path)
         self.reference_ds = xr.open_dataset(self.reference_data_path)[reference_ds_variable]
@@ -74,3 +80,6 @@ class GrunCleaner(Cleaner):
         return
 
     def preprocess2(self):
+        #
+        self.resample_time(resample_str="M")
+        self.correct_time_slice()
