@@ -12,13 +12,15 @@ from preprocessing.grun_cleaner import GrunCleaner
 from preprocessing.esa_cci_lc_cleaner import EsaCciCleaner
 from preprocessing.utils import merge_data_arrays, save_netcdf, get_all_valid
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+import matplotlib.pyplot as plt
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 gr = GrunCleaner(
     base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
     reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/EA_GRUN_ref_masked.nc"),
-    reference_ds_variable='Runoff',
-    data_filename='EA_GRUN_ref_masked.nc'
+    reference_ds_variable='grun_runoff',
+    data_filename='EA_GRUN_ref_masked.nc',
+    data_variable='grun_runoff'
 )
 gr.preprocess2()
 # gr.preprocess2()

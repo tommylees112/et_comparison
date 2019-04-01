@@ -27,7 +27,8 @@ class GrunCleaner(Cleaner):
     base_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/"),
     reference_data_path=Path("/soge-home/projects/crop_yield/EGU_compare/") / "holaps_EA_clean.nc",
     reference_ds_variable='holaps_evapotranspiration',
-    data_filename = "GRUN_v1_GSWP3_WGS84_05_1902_2014.nc"
+    data_filename = "GRUN_v1_GSWP3_WGS84_05_1902_2014.nc",
+    data_variable = "Runoff"
     ):
         self.base_data_path = Path(base_data_path)
         # reference_data_path = self.base_data_path / "holaps_EA_clean.nc"
@@ -44,7 +45,7 @@ class GrunCleaner(Cleaner):
 
         # extract the variable of interest (TO xr.DataArray)
         self.update_clean_data(
-            self.raw_data.Runoff, msg="Extract runoff from GRUN xr.Dataset"
+            self.raw_data[data_variable], msg="Extract runoff from GRUN xr.Dataset => xr.DataArray"
         )
 
         # make the mask (FROM REFERENCE_DS) to copy to this dataset too
