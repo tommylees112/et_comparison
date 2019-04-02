@@ -327,7 +327,7 @@ def plot_inset_map(
     """ """
     axins = inset_axes(
         ax,
-        width=width, 
+        width=width,
         height=height,
         loc=loc,
         axes_class=cartopy.mpl.geoaxes.GeoAxes,
@@ -436,7 +436,7 @@ def plot_mean_and_std(mean_ds, std_ds, ax):
 
 
 
-def plot_seasonality(ds, ylabel=None, double_year=False, variance=False):
+def plot_seasonality(ds, ax=None, ylabel=None, double_year=False, variance=False):
     """Plot the monthly seasonality of the dataset
 
     Arguments:
@@ -464,7 +464,8 @@ def plot_seasonality(ds, ylabel=None, double_year=False, variance=False):
         # merge into one dataset
         # seasonality = xr.merge([seasonality,seasonality_std])
 
-    fig, ax = plt.subplots(figsize=(12,8))
+    if ax==None:
+        fig, ax = plt.subplots(figsize=(12,8))
 
     if variance:
         plot_mean_and_std(seasonality, seasonality_std, ax)

@@ -209,6 +209,7 @@ if not dunning_dir.is_file():
     dunning.to_netcdf(BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc")
 else:
     dunning = xr.open_dataset(dunning_dir)
+    dunning = dunning.rename({"__xarray_dataarray_variable__":"dunning_mask"})
 
 
 def chop_to_region_extent(ds, region):
