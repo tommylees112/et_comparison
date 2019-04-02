@@ -1459,21 +1459,22 @@ fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot.png')
 # TOP = PRECIP BOTTOM = EVAP
 import matplotlib.dates as mdates
 for d, regime in zip([bimodal, unimodal],["Bimodal", "Unimodal"]):
-    # plot_seasonality(d[evap_variables], ax=ax2, double_year=True, variance=True)
-    plot_seasonality(d[evap_variables], double_year=True, variance=True)
-    ax=plt.gca()
+    fig,(ax1,ax2) = plt.subplots(2,1,figsize=(12,8))
+    plot_seasonality(d[evap_variables], ax=ax2, double_year=True, variance=True)
+    # plot_seasonality(d[evap_variables], double_year=True, variance=True)
+    # ax=plt.gca()
 
     locator = mdates.MonthLocator()  # every month
     # Specify the format - %b gives us Jan, Feb...
     fmt = mdates.DateFormatter('%b')
-    ax.xaxis.set_major_locator(locator)
+    ax2.xaxis.set_major_locator(locator)
     # Specify formatter
-    ax.xaxis.set_major_formatter(fmt)
+    ax2.xaxis.set_major_formatter(fmt)
     ax.set_ylim([0,3.35])
-    fig = plt.gcf()
+    # fig = plt.gcf()
     fig.suptitle(f"Seasonality for the {regime} Regime (Dunning et al 2016)")
     plt.legend()
-    fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_W_VAR.png')
+    fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_W_VAR2.png')
 
 
 import calendar

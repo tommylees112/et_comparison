@@ -479,7 +479,7 @@ def plot_seasonality(ds, ax=None, ylabel=None, double_year=False, variance=False
         ax.axvline(12, color='black', linestyle=":", alpha=0.5)
     if ylabel != None:
         ax.set_ylabel(ylabel)
-
+    fig = plt.gcf()
     return fig, ax
 
 
