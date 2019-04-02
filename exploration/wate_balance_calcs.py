@@ -27,7 +27,7 @@ import geopandas as gpd
 import shapely
 from pathlib import Path
 
-BASE_FIG_DIR = Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting5')
+BASE_FIG_DIR = Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting6')
 
 # pour point id to geoid
 pp_to_geoid_map = {
@@ -505,6 +505,44 @@ station_lkup['NAME'] = station_lkup.index
 
 colors  = [h_col, g_col, m_col, c_col] = get_colors()
 
+# ------------------------------------------------------------------------------
+# Plot the
+# ------------------------------------------------------------------------------
+
+# fig,ax=plt.subplots(figsize=(12,8))
+fig,ax=plot_geog_location(all_region, borders=True, rivers=True, lakes=True)
+ds.chirps_precipitation.mean(dim='time').plot(ax=ax,cmap="viridis")
+ax.set_title('CHIRPS Precipitation [mm day-1]')
+fig.savefig(BASE_FIG_DIR / "CHIRPS_mean_spatial_patterns_LOW_RES.png")
+fig.savefig(BASE_FIG_DIR / "CHIRPS_mean_spatial_patterns_LOW_RES.svg")
+
+
+kwargs = {'vmin':0.3,'vmax':3.0}
+fig,ax=plot_geog_location(all_region, borders=True, rivers=True, lakes=True)
+ds.holaps_evapotranspiration.mean(dim='time').plot(ax=ax,cmap="viridis", **kwargs)
+ax.set_title('HOLAPS Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR / "HOLAPS_mean_spatial_patterns_LOW_RES.png")
+fig.savefig(BASE_FIG_DIR / "HOLAPS_mean_spatial_patterns_LOW_RES.svg")
+
+fig,ax=plot_geog_location(all_region, borders=True, rivers=True, lakes=True)
+ds.gleam_evapotranspiration.mean(dim='time').plot(ax=ax,cmap="viridis", **kwargs)
+ax.set_title('GLEAM Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR / "GLEAM_mean_spatial_patterns_LOW_RES.png")
+fig.savefig(BASE_FIG_DIR / "GLEAM_mean_spatial_patterns_LOW_RES.svg")
+
+fig,ax=plot_geog_location(all_region, borders=True, rivers=True, lakes=True)
+ds.modis_evapotranspiration.mean(dim='time').plot(ax=ax,cmap="viridis", **kwargs)
+ax.set_title('MODIS Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR / "MODIS_mean_spatial_patterns_LOW_RES.png")
+fig.savefig(BASE_FIG_DIR / "MODIS_mean_spatial_patterns_LOW_RES.svg")
+
+fig,ax=plot_geog_location(all_region, borders=True, rivers=True, lakes=True)
+ds.grun_runoff.mean(dim='time').plot(ax=ax,cmap="viridis")
+ax.set_title('GRUN Runoff [mm day-1]')
+fig.savefig(BASE_FIG_DIR / "GRUN_mean_spatial_patterns.png")
+fig.savefig(BASE_FIG_DIR / "GRUN_mean_spatial_patterns.svg")
+
+
 
 # ------------------------------------------------------------------------------
 # Plot the monthly mean values for different watersheds
@@ -624,13 +662,17 @@ for ix, station in station_lkup.iterrows():
     monthly_flows = flows.groupby(by=[flows.index.month]).mean()
     # get a (lat,lon) mask for the watershed
     shed = mask_multiple_conditions(wsheds.watershed_for_pourpoint, polyids)
+    # get the point location of the basin
+    point = station_lkup.loc[station_lkup.ID == geoid].geometry.values[0]
+    # basin name
+    river = station_lkup.loc[station_lkup.ID == geoid,"RiverName"].values[0]
 
     # get watershed area
     d = ds[variables + ['grun_runoff']].where(shed)
     # get the times where there is data for that station
     d = d.sel(time=nonnull_times)
     # P-E calculation
-    d_p_min_e = d.chirps_precipitation - d.drop('grun_runoff')
+    d_p_min_e = (d.chirps_precipitation - d.drop('grun_runoff')).drop('chirps_precipitation')
 
     # mean spatial patterns?
     d_time = d.mean(['lat','lon'])
@@ -639,9 +681,33 @@ for ix, station in station_lkup.iterrows():
 
     # PLOT ALL timeseries
     fig,ax = plt.subplots(figsize=(12,8))
-    ax = d.mean(['lat','lon']).to_dataframe().plot.line(ax=ax)
+    ax = d.mean(['lat','lon']).drop(['grun_runoff','chirps_precipitation']).to_dataframe().plot.line(ax=ax)
     fig.suptitle(f'{geoid} Station RAW Rainfall and Evapotranspiration')
-    fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_legit_time_series.png")
+    fig.savefig(BASE_FIG_DIR/f"{geoid}_watershed_legit_time_series2.png")
+
+    # PLOT P-E TIMESERIES AND THE RUNOFF
+    fig,ax = plt.subplots(figsize=(12,8))
+    d_time[evap_variables].to_dataframe().plot(kind='line',ax=ax, marker='o',alpha=0.7)
+    flows.plot(kind='line', ax=ax,marker='o',alpha=0.7,label='Station Runoff')
+    ax.set_ylim([0,5.5])
+    ax.set_ylabel('[mm day-1]')
+    plt.legend()
+    ax2 = plot_inset_map(ax, all_region, borders=True , rivers=True, height="30%",width="30%",loc='upper left')
+    add_point_location_to_map(point, ax2, **{'color':'black'})
+    (~d.grun_runoff.isnull()).mean(dim='time').astype(bool).plot(cmap='Wistia',ax=ax2,add_colorbar=False,zorder=0)
+    ax.set_title(f'Runoff and Evaporation Values for Station: {geoid} in River: {river}')
+    fig.savefig(BASE_FIG_DIR/f"runoff_{geoid}_watershed_ET_runoff.png")
+# xs = ax.get_xlim()
+# x = np.linspace(xs[0],xs[1],len(_df))
+# _df = d_p_min_e.mean(dim=['lat','lon']).to_dataframe()
+# ax.bar(zorder=0,alpha=0.7,x=x,height=_df.holaps_evapotranspiration.values,label='P - ET (HOLAPS)', color=h_col)
+# ax.bar(zorder=0,alpha=0.7,x=x,height=_df.gleam_evapotranspiration.values,label='P - ET (GLEAM)', color=g_col)
+# ax.bar(zorder=0,alpha=0.7,x=x,height=_df.modis_evapotranspiration.values,label='P - ET (MODIS)', color=m_col)
+
+# d_p_min_e.mean(dim=['lat','lon']).to_dataframe().plot(kind='bar',ax=ax,zorder=0,alpha=0.7)
+
+    # TOMMY WAS HERE
+
 
     # plot timeseries of the flows (MONTHLY)
     fig,ax = plt.subplots(figsize=(12,8))
@@ -1098,7 +1164,7 @@ def scalar_xr_to_dict(xr_ds):
 
 plt.close('all')
 
-LOW = True
+LOW = False
 
 flws = []
 hlps = []
@@ -1290,10 +1356,39 @@ fig.savefig(BASE_FIG_DIR / f"ALLVARS_distribution_of_water_balance_calcs_ALLTIME
 # drop_nans_and_flatten(wb_all.modis_evapotranspiration)
 # all_gleam = drop_nans_and_flatten(wb_all.gleam_evapotranspiration)
 
+# ------------------------------------------------------------------------------
+# plot native resolution values
+# ------------------------------------------------------------------------------
+
+kwargs = {'vmin':0,'vmax':3.0}
+fig,ax=plot_geog_location(all_region,rivers=True,lakes=True,borders=True)
+ds.holaps_evapotranspiration.mean(dim='time').plot(ax=ax,**kwargs)
+ax.set_title('HOLAPS Mean Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR/'HOLAPS_mean_spatial_patterns.png')
+
+fig,ax=plot_geog_location(all_region,rivers=True,lakes=True,borders=True)
+ds.gleam_evapotranspiration.mean(dim='time').plot(ax=ax,**kwargs)
+ax.set_title('GLEAM Mean Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR/'GLEAM_mean_spatial_patterns.png')
+
+
+fig,ax=plot_geog_location(all_region,rivers=True,lakes=True,borders=True)
+ds.modis_evapotranspiration.mean(dim='time').plot(ax=ax,**kwargs)
+ax.set_title('MODIS Mean Evapotranspiration [mm day-1]')
+fig.savefig(BASE_FIG_DIR/'MODIS_mean_spatial_patterns.png')
 
 
 
+# ------------------------------------------------------------------------------
+# plot stations and their basins
+# ------------------------------------------------------------------------------
 
-
-
+fig,ax=plot_geog_location(all_region,rivers=True,lakes=True,borders=True)
+points = [station_lkup.loc[station_lkup.ID == geoid].geometry.values[0] for geoid in station_lkup.ID]
+geoids = [geoid for geoid in station_lkup.ID]
+for point in points:
+    add_point_location_to_map(point, ax, **{'color':'black'})
+ALL_SHEDS.plot(ax=ax,add_colorbar=False,cmap='Wistia',zorder=0)
+ax.set_title('Station Locations and Watershed Boundary')
+fig.savefig(BASE_FIG_DIR / "LOCATION_OF_STATIONS.png")
 #

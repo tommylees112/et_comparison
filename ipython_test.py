@@ -75,7 +75,7 @@ from plotting.plot_utils import get_colors
 
 BASE_DATA_DIR = Path('/soge-home/projects/crop_yield/EGU_compare')
 BASE_DIR = Path('/soge-home/projects/crop_yield/et_comparison')
-BASE_FIG_DIR =Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting5')
+BASE_FIG_DIR = Path('/soge-home/projects/crop_yield/et_comparison/figs/meeting6')
 
 # clean data
 ds = xr.open_dataset(BASE_DATA_DIR/"processed_ds2.nc")

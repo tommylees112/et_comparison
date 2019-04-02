@@ -327,7 +327,7 @@ def plot_inset_map(
     """ """
     axins = inset_axes(
         ax,
-        width=width,
+        width=width, 
         height=height,
         loc=loc,
         axes_class=cartopy.mpl.geoaxes.GeoAxes,
