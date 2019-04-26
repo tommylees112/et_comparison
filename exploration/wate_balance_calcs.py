@@ -347,29 +347,28 @@ evap_variables = [var for var in variables if "precip" not in var]
 
 colors  = [h_col, g_col, m_col, c_col] = get_colors()
 
-def read_dunning_mask():
+def read_dunning_mask(ds):
     dunning_dir = BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc"
     mask = ds.holaps_evapotranspiration.isel(time=0).isnull()
 
-    if not dunning_dir.is_file():
-        dunning = xr.open_dataset(BASE_DATA_DIR/"dunning_seasonality_mask/"/"chirps_seasonality_mask.nc")
-        dunning = convert_to_same_grid(ds, dunning.seasonality_mask, method="nearest_s2d")
-        dunning = dunning.where(~mask)
-        dunning = dunning.drop('time')
-        dunning.to_netcdf(BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc")
-    else:
-        dunning = xr.open_dataset(dunning_dir)
-        dunning = dunning.rename({"__xarray_dataarray_variable__":"dunning_mask"})
+    # if not dunning_dir.is_file():
+    dunning = xr.open_dataset(BASE_DATA_DIR/"dunning_seasonality_mask/"/"chirps_seasonality_mask.nc")
+    dunning = convert_to_same_grid(ds, dunning.seasonality_mask, method="nearest_s2d")
+    dunning = dunning.where(~mask)
+    dunning = dunning.drop('time')
+    # dunning.to_netcdf(BASE_DATA_DIR / "dunning_seasonality_mask" / "clean_dunning_mask.nc")
+    # else:
+    #     dunning = xr.open_dataset(dunning_dir)
+    #     dunning = dunning.rename({"__xarray_dataarray_variable__":"dunning_mask"})
 
     seasonality_mask = ((dunning > 1.0) ) | ((dunning.lat < 0) )
     # seasonality_mask = ((dunning < 1.0) & (dunning.lon < 40)) | (dunning.lat > 4)
-    mask = ds.holaps_evapotranspiration.isel(time=0).isnull()
     seasonality_mask = seasonality_mask.where(~mask)
 
-    return seasonality_mask.dunning_mask.drop('time')
+    return seasonality_mask.drop('time')
 
 
-seasonality_mask = read_dunning_mask()
+seasonality_mask = read_dunning_mask(ds)
 
 ################################################################################
 ################################################################################
@@ -623,6 +622,7 @@ for ix, station in station_lkup.iterrows():
 
 # compare timeseries for each station
 plt.close('all')
+
 for ix, station in station_lkup.iterrows():
     geoid = station.ID
     pp_id = station.NAME
@@ -630,7 +630,8 @@ for ix, station in station_lkup.iterrows():
     polyids = pp_to_polyid_map[geoid]
     print(geoid, polyids)
     station_meta = station_lkup.loc[station_lkup.ID == geoid]
-    basin = station_lkup.loc[station_lkup.ID == geoid,"RiverBasin"].values[0]
+    basin = station_lkup.loc[station_lkup.ID == geoid,"RiverName"].values[0]
+    shed = mask_multiple_conditions(wsheds.watershed_for_pourpoint, polyids)
     # get the flows for the NON NULL timesteps
     flows = lgt_stations[geoid_col]
     nonnull_times = flows.index[~flows.isnull()]
@@ -1422,14 +1423,20 @@ fig.savefig(BASE_FIG_DIR / "LOCATION_OF_STATIONS.png")
 # plot two unimodal/bimodal regions
 # ------------------------------------------------------------------------------
 
+
+LOW = True
+import calendar
+
 bimodal = ds.where(seasonality_mask)
 unimodal = ds.where(~seasonality_mask.astype(bool))
-
 # fig,ax= plt.subplots(figsize=(12,8))
 fig,ax= plot_geog_location(all_region, rivers=True, borders=True, lakes=True)
 seasonality_mask.plot.contourf(levels=3)# add_colorbar=False)
 fig.suptitle('Seasonality Mask from (Dunning et al 2016)\n 1: Bimodal Regime 0: Unimodal Regime')
-fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot.png')
+if LOW:
+    fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot_LOW.png')
+else:
+    fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot.png')
 
 # TOP = PRECIP BOTTOM = EVAP
 for d, regime in zip([bimodal, unimodal],["Bimodal", "Unimodal"]):
@@ -1447,37 +1454,56 @@ for d, regime in zip([bimodal, unimodal],["Bimodal", "Unimodal"]):
     ax2.set_ylabel('Evapotranspiration [mm day-1]')
     ax2.set_xticklabels(labels = [m for m in calendar.month_abbr])
     fig.suptitle(f'Seasonality for the {regime} Regime (Dunning et al 2016)')
-    fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot.png')
+    if LOW:
+        fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_LOW.png')
+    else:
+        fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot.png')
 
 # THE SAME BUT NORMALISED
 # fig,ax= plt.subplots(figsize=(12,8))
 fig,ax= plot_geog_location(all_region, rivers=True, borders=True, lakes=True)
 seasonality_mask.plot.contourf(levels=3)# add_colorbar=False)
 fig.suptitle('Seasonality Mask from (Dunning et al 2016)\n 1: Bimodal Regime 0: Unimodal Regime')
-fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot.png')
+if LOW:
+    fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot_LOW.png')
+else:
+    fig.savefig(BASE_FIG_DIR / 'mask_spatial_plot.png')
 
 # TOP = PRECIP BOTTOM = EVAP
 import matplotlib.dates as mdates
 for d, regime in zip([bimodal, unimodal],["Bimodal", "Unimodal"]):
     fig,(ax1,ax2) = plt.subplots(2,1,figsize=(12,8))
+
+    # PLOT RAINFALL AND COLORS
+    plot_seasonality(d[['chirps_precipitation']], ax=ax1, double_year=True, variance=True)
+    ax1.get_legend().remove()
+    ax1.lines[0].set_color('#d4382d')
+    ax1.collections[0].set_facecolor('#d4382d')
+    ax1.set_ylabel('Precipitation [mm day-1]')
+
+    # PLOT ET
     plot_seasonality(d[evap_variables], ax=ax2, double_year=True, variance=True)
-    # plot_seasonality(d[evap_variables], double_year=True, variance=True)
-    # ax=plt.gca()
+    ax2.set_ylabel('Evapotranspiration [mm day-1]')
 
     locator = mdates.MonthLocator()  # every month
     # Specify the format - %b gives us Jan, Feb...
     fmt = mdates.DateFormatter('%b')
+    ax1.xaxis.set_major_locator(locator)
     ax2.xaxis.set_major_locator(locator)
     # Specify formatter
+    ax1.xaxis.set_major_formatter(fmt)
     ax2.xaxis.set_major_formatter(fmt)
-    ax.set_ylim([0,3.35])
+    ax2.set_ylim([0,3.35])
     # fig = plt.gcf()
+    fig.autofmt_xdate()
     fig.suptitle(f"Seasonality for the {regime} Regime (Dunning et al 2016)")
     plt.legend()
-    fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_W_VAR2.png')
+    if LOW:
+        fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_W_VAR2_LOW.png')
+    else:
+        fig.savefig(BASE_FIG_DIR / f'mask_{regime}_evap_precip_plot_W_VAR2.png')
 
 
-import calendar
 ax.set_xticklabels(labels = [m for m in calendar.month_abbr] * 2)
     #
     # d

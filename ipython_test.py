@@ -34,6 +34,8 @@ from preprocessing.utils import read_csv_point_data
 # from preprocessing.modis_cleaner import ModisCleaner
 
 # import data engineering functions
+from preprocessing.utils import convert_to_same_grid
+
 from engineering.mask_using_shapefile import add_shape_coord_from_data_array
 from engineering.regions import regions
 from engineering.eng_utils import get_lookup_val, mask_multiple_conditions
